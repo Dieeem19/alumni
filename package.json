@@ -1,0 +1,10 @@
+{
+  "name": "bcp-alumni-system",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix smart-alumni-management run dev"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.18.3"
+  }
+}

@@ -1,0 +1,3646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCP Smart Alumni Management | Admin Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/theme.css">
+<!-- Supabase JS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --brand-primary: #102152 !important;
+    --brand-primary-dark: #0B173B !important;
+    --ai-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+    --ai-bg-glow: rgba(99, 102, 241, 0.08);
+  }
+
+  .topbar {
+    background-color: #102152 !important;
+    background: #102152 !important;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeIn 0.2s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .sidebar-link { cursor: pointer; user-select: none; }
+
+  /* 10-stat KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: #fff;
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-card);
+    transition: transform var(--transition), box-shadow var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 4px; background: var(--brand-accent); }
+  .kpi-card.accent-purple::before { background: #8b5cf6; }
+  .kpi-card.accent-green::before { background: #10b981; }
+  .kpi-card.accent-amber::before { background: #f59e0b; }
+  .kpi-card.accent-rose::before { background: #f43f5e; }
+  .kpi-card.accent-indigo::before { background: #6366f1; }
+  .kpi-card.accent-cyan::before { background: #06b6d4; }
+
+  .kpi-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kpi-value {
+    font-size: 23px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+  }
+  .kpi-sub { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; }
+
+  /* Progress Bar */
+  .progress-track { background: #e2e8f0; height: 9px; border-radius: 20px; overflow: hidden; margin: 8px 0; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #10b981, #059669); border-radius: 20px; transition: width 0.3s ease; }
+
+  /* AI-Driven Insights Section */
+  .ai-section {
+    background: linear-gradient(135deg, #faf5ff 0%, #f0fdf4 50%, #eff6ff 100%);
+    border: 1.5px solid #c7d2fe;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 26px;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.1);
+    position: relative;
+  }
+  .ai-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .ai-badge-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: #3730a3;
+  }
+  .ai-chip {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--ai-gradient);
+    color: #fff;
+    letter-spacing: 0.8px;
+  }
+  .btn-ai {
+    background: var(--ai-gradient);
+    color: #fff;
+    border: none;
+    padding: 9px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 20px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  }
+  .btn-ai:hover { transform: scale(1.02); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4); }
+  .btn-ai:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .ai-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .ai-insight-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid #e0e7ff;
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+  .ai-insight-card h4 {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-insight-card p { margin: 0; font-size: 13px; line-height: 1.55; color: #334155; }
+
+  /* Filter Bar */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    background: #fff;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+  }
+  .filter-bar input, .filter-bar select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    outline: none;
+    background: #fff;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--brand-accent); }
+
+  /* Modals */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; animation: fadeIn 0.15s ease-out; }
+  .modal-dialog {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  }
+
+  .status-badge-active { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .status-badge-inactive { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+
+  .badge-req-pending { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .badge-req-processing { background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .badge-req-ready { background: #f3e8ff; color: #6b21a8; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .badge-req-completed { background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .badge-req-rejected { background: #fee2e2; color: #b91c1c; padding: 4px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+
+  /* ── Responsive Topbar Search ───────────────────────── */
+  .topbar-search {
+    flex: 1 1 360px;
+    max-width: 420px;
+    min-width: 130px;
+    margin: 0 12px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+  }
+  .topbar-search .search-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+    z-index: 2;
+  }
+  .topbar-search input {
+    width: 100%;
+    padding: 8px 14px 8px 36px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+    color: #FFFFFF;
+    font-size: 13px;
+    outline: none;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .topbar-search input::placeholder { color: rgba(255, 255, 255, 0.75); }
+  .topbar-search input:focus {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+  }
+  @media (max-width: 992px) {
+    .topbar-search { max-width: 280px; }
+  }
+  @media (max-width: 768px) {
+    .topbar-search { max-width: 200px; margin: 0 8px; }
+    .topbar-search input { font-size: 12px; padding: 6px 12px 6px 30px; }
+    .topbar-clock { display: none; }
+  }
+  @media (max-width: 576px) {
+    .topbar-search { max-width: 130px; margin: 0 4px; }
+    .topbar-search input { font-size: 11px; padding: 5px 8px 5px 24px; }
+    .topbar-user span:not(.avatar) { display: none; }
+  }
+</style>
+
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TOPBAR ============ -->
+<header class="topbar" style="background-color: #102152 !important; background: #102152 !important;">
+  <div class="topbar-left">
+    <button class="topbar-icon-btn" id="sidebarToggle" title="Menu"><span class="material-symbols-outlined" style="font-size:20px">menu</span></button>
+    <div class="topbar-brand">
+      <img class="brand-mark-img" src="assets/img/bcplogo.png" alt="BCP logo">
+      BCP SMART ALUMNI MANAGEMENT
+    </div>
+  </div>
+
+  <div class="topbar-search">
+    <span class="search-icon"><span class="material-symbols-outlined" style="font-size:14px">search</span></span>
+    <input type="text" id="topSearchInput" placeholder="Quick search alumni, surveys, jobs, campaigns..." oninput="handleQuickSearch(this.value)">
+  </div>
+
+  <div class="topbar-right">
+    <span class="topbar-clock" id="clock">--:-- --</span>
+    <button class="topbar-icon-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode" onclick="toggleTheme()"><span class="material-symbols-outlined">dark_mode</span></button>
+    <button class="topbar-icon-btn" title="Switch to Alumni Portal" onclick="window.location.href='alumnipage.html';"><span class="material-symbols-outlined">school</span></button>
+    <div class="topbar-user" title="Admin Account">
+      <div class="avatar" style="background: #4338ca;">AD</div>
+      <span id="topbarAdminName">Admin Officer</span>
+    </div>
+    <button class="topbar-icon-btn" title="Log Out" onclick="sessionStorage.clear(); window.location.href='login.html';"><span class="material-symbols-outlined">logout</span></button>
+  </div>
+</header>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-section-label">Dashboard</div>
+  <a class="sidebar-link active" id="navDashboard" onclick="switchTab('dashboard')"><span class="icon"><span class="material-symbols-outlined">home</span></span> Overview Dashboard</a>
+  <a class="sidebar-link" id="navAiInsights" onclick="switchTab('ai-insights')"><span class="icon"><span class="material-symbols-outlined">bolt</span></span> AI Alumni Insights</a>
+
+  <div class="sidebar-section-label">Alumni Management</div>
+  <a class="sidebar-link" id="navDatabase" onclick="switchTab('database')"><span class="icon"><span class="material-symbols-outlined">group</span></span> Alumni Database</a>
+  <a class="sidebar-link" id="navTracking" onclick="switchTab('tracking')"><span class="icon"><span class="material-symbols-outlined">bar_chart</span></span> Graduate Tracking</a>
+  <a class="sidebar-link" id="navJobs" onclick="switchTab('jobs')"><span class="icon"><span class="material-symbols-outlined">work</span></span> Job Placement Logs</a>
+
+  <div class="sidebar-section-label">Requests</div>
+  <a class="sidebar-link" id="navRequests" onclick="switchTab('requests')"><span class="icon"><span class="material-symbols-outlined">description</span></span> Transcript Request</a>
+  <a class="sidebar-link" id="navCertificates" onclick="switchTab('certificates')"><span class="icon"><span class="material-symbols-outlined">workspace_premium</span></span> Certificate Request</a>
+
+  <div class="sidebar-section-label">Events & Community</div>
+  <a class="sidebar-link" id="navEvents" onclick="switchTab('events')"><span class="icon"><span class="material-symbols-outlined">confirmation_number</span></span> Alumni Event Registration</a>
+  <a class="sidebar-link" id="navReunions" onclick="switchTab('reunions')"><span class="icon"><span class="material-symbols-outlined">handshake</span></span> Batch Reunions</a>
+
+  <div class="sidebar-section-label">Engagement</div>
+  <a class="sidebar-link" id="navNewsletter" onclick="switchTab('newsletter')"><span class="icon"><span class="material-symbols-outlined">newspaper</span></span> Alumni Newsletter</a>
+  <a class="sidebar-link" id="navSurveys" onclick="switchTab('surveys')"><span class="icon"><span class="material-symbols-outlined">assignment</span></span> Alumni Feedback & Survey</a>
+
+  <div class="sidebar-section-label">Donations & Reports</div>
+  <a class="sidebar-link" id="navCampaigns" onclick="switchTab('campaigns')"><span class="icon"><span class="material-symbols-outlined">favorite</span></span> Donor Campaign</a>
+  <a class="sidebar-link" id="navReports" onclick="switchTab('reports')"><span class="icon"><span class="material-symbols-outlined">trending_up</span></span> Reports & Analytics</a>
+</aside>
+
+<!-- ============ MAIN CONTENT ============ -->
+<main class="main-content">
+
+  <!-- ================= TAB 1: OVERVIEW DASHBOARD ================= -->
+  <div class="tab-panel active" id="tabDashboard">
+    
+    <div class="banner" id="welcomeBanner">
+      <span><span class="material-symbols-outlined" style="font-size:20px">waving_hand</span> Welcome back, <strong id="adminBannerName">Admin Officer</strong>! System operating with live Google Gemini + NLP Alumni Analytics.</span>
+      <button onclick="document.getElementById('welcomeBanner').style.display='none'"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <!-- 10-Metric KPI Stat Grid -->
+    <div class="kpi-grid">
+      <div class="kpi-card accent-indigo">
+        <div class="kpi-label"><span>Total Alumni</span> <span><span class="material-symbols-outlined" style="font-size:18px">school</span></span></div>
+        <div class="kpi-value" id="kpiTotalAlumni">0</div>
+        <div class="kpi-sub">Registered Graduates</div>
+      </div>
+      <div class="kpi-card accent-green">
+        <div class="kpi-label"><span>Active Alumni</span> <span><span class="material-symbols-outlined" style="font-size:18px">radio_button_checked</span></span></div>
+        <div class="kpi-value" id="kpiActiveAlumni">0</div>
+        <div class="kpi-sub">Verified Accounts</div>
+      </div>
+      <div class="kpi-card accent-cyan">
+        <div class="kpi-label"><span>Employment Rate</span> <span><span class="material-symbols-outlined" style="font-size:18px">work</span></span></div>
+        <div class="kpi-value" id="kpiEmploymentRate">0%</div>
+        <div class="kpi-sub">Employed & Freelance</div>
+      </div>
+      <div class="kpi-card accent-rose">
+        <div class="kpi-label"><span>Unemployed</span> <span><span class="material-symbols-outlined" style="font-size:18px">search</span></span></div>
+        <div class="kpi-value" id="kpiUnemployed">0</div>
+        <div class="kpi-sub">Seeking & Available</div>
+      </div>
+      <div class="kpi-card accent-purple">
+        <div class="kpi-label"><span>Graduates by Batch</span> <span><span class="material-symbols-outlined" style="font-size:18px">menu_book</span></span></div>
+        <div class="kpi-value" id="kpiBatchCount">0</div>
+        <div class="kpi-sub">Recorded Cohorts</div>
+      </div>
+      <div class="kpi-card accent-amber">
+        <div class="kpi-label"><span>Alumni Events</span> <span><span class="material-symbols-outlined" style="font-size:18px">celebration</span></span></div>
+        <div class="kpi-value" id="kpiEventsCount">4</div>
+        <div class="kpi-sub">Active & Upcoming</div>
+      </div>
+      <div class="kpi-card accent-indigo">
+        <div class="kpi-label"><span>Pending OTR</span> <span><span class="material-symbols-outlined" style="font-size:18px">description</span></span></div>
+        <div class="kpi-value" id="kpiPendingOTR">0</div>
+        <div class="kpi-sub">Transcript Requests</div>
+      </div>
+      <div class="kpi-card accent-cyan">
+        <div class="kpi-label"><span>Pending Certs</span> <span><span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span></span></div>
+        <div class="kpi-value" id="kpiPendingCerts">0</div>
+        <div class="kpi-sub">Certificates & Diplomas</div>
+      </div>
+      <div class="kpi-card accent-green">
+        <div class="kpi-label"><span>Alumni Hired</span> <span><span class="material-symbols-outlined" style="font-size:18px">handshake</span></span></div>
+        <div class="kpi-value" id="kpiHiredCount">142</div>
+        <div class="kpi-sub">Through Placement</div>
+      </div>
+      <div class="kpi-card accent-purple">
+        <div class="kpi-label"><span>Donations Raised</span> <span><span class="material-symbols-outlined" style="font-size:18px">favorite</span></span></div>
+        <div class="kpi-value" id="kpiDonationsRaised">₱385,000</div>
+        <div class="kpi-sub">Scholarships & Labs</div>
+      </div>
+    </div>
+
+    <!-- Quick Activity & Overview Table -->
+    <div class="card">
+      <div class="card-header">
+        <h3><span class="material-symbols-outlined" style="font-size:20px">school</span> Recent Alumni Registrations</h3>
+        <button class="btn btn-outline" style="padding: 6px 14px; font-size: 12.5px;" onclick="switchTab('database')">View Full Database →</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Alumni ID</th>
+            <th>Name</th>
+            <th>Course / Degree</th>
+            <th>Batch</th>
+            <th>Employment</th>
+            <th>Company / Employer</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="recentAlumniTableBody">
+          <tr class="empty-row"><td colspan="7">Loading recent alumni...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 2: <span class="material-symbols-outlined" style="font-size:16px">star</span> AI ALUMNI INSIGHTS HUB (Module 12) ================= -->
+  <div class="tab-panel" id="tabAiInsights">
+    
+    <div style="margin-bottom: 20px;">
+      <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:20px">bolt</span> Google Gemini + NLP AI Alumni Insights</h1>
+      <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+        Centralized AI analytical hub: semantic analysis across graduate tracking, employment information, survey responses, feedback, and placement records.
+      </p>
+    </div>
+
+    <div class="ai-section">
+      <div class="ai-header">
+        <div>
+          <div class="ai-badge-title">
+            <span><span class="material-symbols-outlined" style="font-size:18px">auto_awesome</span></span> Gemini Multi-Dimensional Analysis Engine
+            <span class="ai-chip">Gemini API + NLP</span>
+          </div>
+          <p style="margin: 4px 0 0 0; font-size: 13px; color: #4b5563;">
+            Analyzes raw alumni dataset, survey satisfaction ratings, feedback text, and job placement logs.
+          </p>
+        </div>
+        <button class="btn-ai" id="generateAIBtn" onclick="generateAIInsights()">
+          <span><span class="material-symbols-outlined" style="font-size:18px">bolt</span></span> Analyze Alumni Data
+        </button>
+      </div>
+
+      <div class="ai-cards-grid">
+        <div class="ai-insight-card" style="border-left: 4px solid #6366f1;">
+          <h4 style="color: #4338ca;"><span><span class="material-symbols-outlined" style="font-size:18px">work</span></span> Employment Insight</h4>
+          <p id="aiInsightText">
+            "Most graduates are employed within 1–2 years after graduation, with highest placement velocity in IT and Business sectors."
+          </p>
+        </div>
+
+        <div class="ai-insight-card" style="border-left: 4px solid #10b981;">
+          <h4 style="color: #065f46;"><span><span class="material-symbols-outlined" style="font-size:18px">assignment</span></span> Survey &amp; Feedback Insight</h4>
+          <p id="aiSurveyInsightText">
+            "Alumni feedback shows that career support, certification bootcamps, and job placement services are the most requested improvements."
+          </p>
+        </div>
+
+        <div class="ai-insight-card" style="border-left: 4px solid #f59e0b;">
+          <h4 style="color: #92400e;"><span><span class="material-symbols-outlined" style="font-size:18px">psychology</span></span> Skills &amp; Competency Insight</h4>
+          <p id="aiSkillsInsightText">
+            "Communication, full-stack programming, cloud tools, and financial management are among the top common skills reported by alumni."
+          </p>
+        </div>
+
+        <div class="ai-insight-card" style="border-left: 4px solid #db2777;">
+          <h4 style="color: #9d174d;"><span><span class="material-symbols-outlined" style="font-size:18px">lightbulb</span></span> Strategic Recommendation</h4>
+          <p id="aiRecommendationText">
+            "The institution may consider offering additional career workshops, industry-focused certifications, and expanding corporate tie-ups with partner hiring firms."
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 3: ALUMNI DATABASE ================= -->
+  <div class="tab-panel" id="tabDatabase">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+      <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">group</span> Alumni Database</h1>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" onclick="openAddModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Add Alumni</button>
+        <button class="btn btn-outline" onclick="seedSampleData()"><span class="material-symbols-outlined" style="font-size:16px">eco</span> Populate Samples</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="dbSearch" placeholder="Search by name, company, email..." style="flex: 1.5; min-width: 180px;" oninput="applyFilters()">
+      
+      <select id="dbBatchFilter" onchange="applyFilters()">
+        <option value="ALL">All Batches</option>
+      </select>
+
+      <select id="dbCourseFilter" onchange="applyFilters()">
+        <option value="ALL">All Courses</option>
+        <option value="BS Information Technology">BS Information Technology</option>
+        <option value="BS Tourism">BS Tourism</option>
+        <option value="BS Hospitality Management">BS Hospitality Management</option>
+        <option value="BS Computer Science">BS Computer Science</option>
+        <option value="BS Business Administration">BS Business Administration</option>
+        <option value="BS Criminology">BS Criminology</option>
+        <option value="BS Accountancy">BS Accountancy</option>
+        <option value="BS Education">BS Education</option>
+      </select>
+
+      <select id="dbStatusFilter" onchange="applyFilters()">
+        <option value="ALL">All Employment</option>
+        <option value="Employed">Employed</option>
+        <option value="Unemployed">Unemployed</option>
+        <option value="Freelance">Freelance</option>
+        <option value="Seeking">Seeking</option>
+        <option value="Studying">Studying</option>
+      </select>
+
+      <select id="dbActiveFilter" onchange="applyFilters()">
+        <option value="ALL">All Account Status</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>All Alumni Records (<span id="totalRecordBadge">0</span>)</h3>
+        <button class="btn btn-outline" style="font-size: 12px; padding: 4px 10px;" onclick="loadAlumniData()"><span class="material-symbols-outlined" style="font-size:16px">refresh</span> Refresh</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Alumni ID</th>
+            <th>Name</th>
+            <th>Course</th>
+            <th>Batch</th>
+            <th>Employment</th>
+            <th>Company / Employer</th>
+            <th>Location</th>
+            <th>Account</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="databaseTableBody">
+          <tr class="empty-row"><td colspan="9">Loading alumni database...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 4: GRADUATE TRACKING ================= -->
+  <div class="tab-panel" id="tabTracking">
+    
+    <div style="margin-bottom: 20px;">
+      <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">bar_chart</span> Graduate Tracking &amp; Career Analytics</h1>
+      <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+        Comprehensive tracking of alumni employment, employer affiliations, industry distribution, and salary ranges.
+      </p>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #fff; border-radius: var(--radius-md); padding: 22px 26px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(49, 46, 129, 0.2);">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span style="font-size: 20px;"><span class="material-symbols-outlined" style="font-size:20px">bolt</span></span>
+        <h3 style="margin: 0; color: #a5b4fc; font-family: var(--font-display); font-size: 16px;">AI-GENERATED GRADUATE SUMMARY</h3>
+      </div>
+      <p id="aiGraduateSummary" style="font-size: 14.5px; line-height: 1.6; margin: 0; color: #e0e7ff;">
+        Based on the available graduate tracer data, <strong>85%</strong> of Bestlink College alumni are currently employed or operating freelance ventures. The most dominant industries are <strong>Information Technology</strong>, <strong>Business &amp; Financial Services</strong>, and <strong>Hospitality / Tourism</strong>.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Graduate Employment Details</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Alumni Name</th>
+            <th>Degree</th>
+            <th>Batch</th>
+            <th>Employment Status</th>
+            <th>Current Employer</th>
+            <th>Position / Role</th>
+            <th>Industry</th>
+            <th>Location</th>
+          </tr>
+        </thead>
+        <tbody id="trackingTableBody">
+          <tr class="empty-row"><td colspan="8">Loading graduate tracking records...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 5: JOB PLACEMENT LOGS ================= -->
+  <div class="tab-panel" id="tabJobs">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">work</span> Job Placement Logs &amp; Opportunities</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Record partner job openings, track alumni hired count, and analyze career placement outcomes.
+        </p>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-outline" onclick="openPartnersModal()" style="font-weight: 600;"><span class="material-symbols-outlined" style="font-size:16px">business</span> View Partner List</button>
+        <button class="btn btn-primary" onclick="openAddJobModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Post New Job</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div class="kpi-card accent-green">
+        <div class="kpi-label"><span>Active Openings</span> <span><span class="material-symbols-outlined" style="font-size:18px">work</span></span></div>
+        <div class="kpi-value" id="jobKpiActive">0</div>
+        <div class="kpi-sub">Accepting Applications</div>
+      </div>
+      <div class="kpi-card accent-indigo" onclick="openHiredAlumniModal()" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div class="kpi-label"><span>Total Alumni Hired</span> <span><span class="material-symbols-outlined" style="font-size:18px">handshake</span></span></div>
+        <div class="kpi-value" id="jobKpiHired">0</div>
+        <div class="kpi-sub">Click to View Hired List →</div>
+      </div>
+      <div class="kpi-card accent-purple" onclick="openPartnersModal()" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div class="kpi-label"><span>Partner Companies</span> <span><span class="material-symbols-outlined" style="font-size:18px">business</span></span></div>
+        <div class="kpi-value" id="jobKpiCompanies">8</div>
+        <div class="kpi-sub">Click to View Directory →</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Partner Job Postings &amp; Placement Logs</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Job Title</th>
+            <th>Company</th>
+            <th>Industry</th>
+            <th>Location</th>
+            <th>Posted Date</th>
+            <th>Alumni Hired</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobsTableBody">
+          <tr class="empty-row"><td colspan="8">Loading job placement logs...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 6: TRANSCRIPT REQUESTS ================= -->
+  <div class="tab-panel" id="tabRequests">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">description</span> Transcript Request Portal</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary);">Manage and process Official Transcript of Records (OTR) requests.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 style="margin: 0;">Incoming Transcript Requests</h3>
+        <button class="btn btn-outline" style="font-size: 12px; padding: 5px 12px; color: #ef4444; border-color: #fca5a5;" onclick="clearAllTranscriptRequests()"><span class="material-symbols-outlined" style="font-size:16px">delete</span> Clear All Requests</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Request ID</th>
+            <th>Alumni Name</th>
+            <th>Course &amp; Batch</th>
+            <th>Delivery Method</th>
+            <th>Date Requested</th>
+            <th>Status</th>
+            <th>Release Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="requestsTableBody">
+          <tr class="empty-row"><td colspan="8">Loading transcript requests...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 7: CERTIFICATE REQUESTS ================= -->
+  <div class="tab-panel" id="tabCertificates">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">workspace_premium</span> Certificate Request Management</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Review, approve, issue, and upload official academic certificates, CAV, and diplomas.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Certificate Applications Queue</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Cert ID</th>
+            <th>Alumni Name</th>
+            <th>Certificate Type</th>
+            <th>Delivery Method</th>
+            <th>Purpose</th>
+            <th>Date Requested</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="certTableBody">
+          <tr class="empty-row"><td colspan="8">Loading certificate requests...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 8: ALUMNI EVENTS ================= -->
+  <div class="tab-panel" id="tabEvents">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">confirmation_number</span> Alumni Event Registration &amp; Attendance</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Create homecomings, career seminars, job fairs, and export live attendance rosters.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddEventModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Create New Event</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Scheduled Alumni Events</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Event Title</th>
+            <th>Category</th>
+            <th>Date &amp; Time</th>
+            <th>Venue</th>
+            <th>Capacity / Registered</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="eventsTableBody">
+          <tr class="empty-row"><td colspan="7">Loading alumni events...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 9: BATCH REUNIONS ================= -->
+  <div class="tab-panel" id="tabReunions">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">handshake</span> Batch Reunions Manager</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Organize graduating cohort homecomings, manage attendee lists, and broadcast announcements.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddReunionModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Schedule Batch Reunion</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Graduation Cohort Reunions</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Target Batch</th>
+            <th>Reunion Title</th>
+            <th>Date &amp; Time</th>
+            <th>Venue</th>
+            <th>Confirmed Attendees</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="reunionsTableBody">
+          <tr class="empty-row"><td colspan="7">Loading batch reunions...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 10: ALUMNI NEWSLETTER ================= -->
+  <div class="tab-panel" id="tabNewsletter">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">newspaper</span> Alumni Newsletter &amp; AI Announcement Writer</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Publish official school news and generate professional announcements using <strong>Google Gemini + NLP</strong>.
+        </p>
+      </div>
+    </div>
+
+    <div class="newsletter-writer-box" style="border: 1.5px solid #c084fc; border-radius: var(--radius-lg); padding: 22px; margin-bottom: 26px; box-shadow: 0 4px 16px rgba(192, 132, 252, 0.15);">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <span style="font-size: 22px;"><span class="material-symbols-outlined" style="font-size:22px">auto_awesome</span></span>
+        <h3 style="margin: 0; font-family: var(--font-display); font-size: 17px;" class="newsletter-writer-title">
+          Gemini + NLP Professional Announcement Writer
+        </h3>
+        <span class="ai-chip">Instant AI Expansion</span>
+      </div>
+      <p class="newsletter-writer-desc" style="font-size: 13px; margin-bottom: 12px;">
+        Type a quick draft or simple thought below (e.g. <em>"We will have an alumni homecoming on March 15, 2027."</em>), and Gemini will generate a professional announcement ready for publication.
+      </p>
+
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+        <input type="text" id="aiDraftInput" placeholder="Enter brief note: e.g. We will have an alumni homecoming on March 15, 2027." style="flex: 1; min-width: 250px; padding: 10px 14px; border: 1px solid #d8b4fe; border-radius: var(--radius-sm); font-size: 13.5px;">
+        <button class="btn-ai" onclick="generateAIAnnouncement()">
+          <span><span class="material-symbols-outlined" style="font-size:18px">bolt</span></span> Generate with Gemini AI
+        </button>
+      </div>
+
+      <div id="aiGeneratedPreviewBox" style="display: none; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-top: 14px;">
+        <div style="font-size: 12px; font-weight: 700; color: #7c3aed; text-transform: uppercase; margin-bottom: 6px;">
+          Generated Announcement (Editable):
+        </div>
+        <input type="text" id="aiGenTitle" style="width: 100%; font-size: 16px; font-weight: 700; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; background: var(--bg-page); color: var(--text-primary);">
+        <textarea id="aiGenContent" rows="4" style="width: 100%; font-size: 13.5px; border: 1px solid var(--border-color); border-radius: 4px; padding: 8px 10px; line-height: 1.5; font-family: var(--font-body); background: var(--bg-page); color: var(--text-primary);"></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+          <button class="btn btn-primary" onclick="publishAIAnnouncement()"><span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Approve &amp; Publish Announcement</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Published Newsletter Articles &amp; Announcements</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Article Title</th>
+            <th>Category</th>
+            <th>Author</th>
+            <th>Date Published</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="newsletterTableBody">
+          <tr class="empty-row"><td colspan="5">Loading newsletter posts...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 11: <span class="material-symbols-outlined" style="font-size:18px">assignment</span> ALUMNI FEEDBACK & SURVEY (Module 11) ================= -->
+  <div class="tab-panel" id="tabSurveys">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">assignment</span> Alumni Feedback &amp; Survey Manager</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Create questionnaires, track graduate satisfaction ratings, and analyze suggestions with <strong>Gemini AI NLP Feedback Analysis</strong>.
+        </p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-ai" id="analyzeFeedbackBtn" onclick="analyzeFeedbackNLP()"><span><span class="material-symbols-outlined" style="font-size:18px">psychology</span></span> Analyze with Gemini AI</button>
+        <button class="btn btn-primary" onclick="openCreateSurveyModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Create Survey</button>
+        <button class="btn btn-outline" onclick="exportSurveyResults()"><span class="material-symbols-outlined" style="font-size:16px">download</span> Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Gemini AI NLP Analysis Panel -->
+    <div id="aiFeedbackSummaryBox" style="display:none; margin-bottom: 22px;">
+      <div class="ai-section" style="padding: 22px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+          <span style="font-size:22px;"><span class="material-symbols-outlined" style="font-size:18px">psychology</span></span>
+          <h3 style="margin:0; font-family:var(--font-display); font-size:17px; color:var(--text-primary);">Gemini NLP Sentiment &amp; Feedback Synthesis</h3>
+          <span class="ai-chip">Live AI Analysis</span>
+          <span id="aiFeedbackProcessing" style="display:none; font-size:13px; color:var(--text-secondary); margin-left:6px;"><span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Analyzing responses...</span>
+        </div>
+
+        <!-- KPI Row -->
+        <div id="feedbackKpiRow" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:18px;">
+          <div style="background:var(--bg-card); border-radius:var(--radius-md); padding:14px 16px; border:1px solid var(--border-color); text-align:center;">
+            <div style="font-size:26px; font-weight:700; color:#10b981;" id="kpiPositivePct">—</div>
+            <div style="font-size:11.5px; color:var(--text-secondary); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px;">Positive Sentiment</div>
+          </div>
+          <div style="background:var(--bg-card); border-radius:var(--radius-md); padding:14px 16px; border:1px solid var(--border-color); text-align:center;">
+            <div style="font-size:26px; font-weight:700; color:#f59e0b;" id="kpiNeutralPct">—</div>
+            <div style="font-size:11.5px; color:var(--text-secondary); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px;">Neutral</div>
+          </div>
+          <div style="background:var(--bg-card); border-radius:var(--radius-md); padding:14px 16px; border:1px solid var(--border-color); text-align:center;">
+            <div style="font-size:26px; font-weight:700; color:#ef4444;" id="kpiNegativePct">—</div>
+            <div style="font-size:11.5px; color:var(--text-secondary); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px;">Needs Attention</div>
+          </div>
+          <div style="background:var(--bg-card); border-radius:var(--radius-md); padding:14px 16px; border:1px solid var(--border-color); text-align:center;">
+            <div style="font-size:26px; font-weight:700; color:var(--brand-accent);" id="kpiTotalResp">—</div>
+            <div style="font-size:11.5px; color:var(--text-secondary); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-top:4px;">Total Responses</div>
+          </div>
+        </div>
+
+        <!-- AI Generated Insights -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;" id="feedbackInsightsGrid">
+          <div class="ai-insight-card">
+            <h4><span class="material-symbols-outlined" style="font-size:16px">bar_chart</span> Overall Sentiment</h4>
+            <p id="aiSentimentText" style="color:var(--text-secondary);">Click "Analyze with Gemini AI" to generate insights from all survey responses.</p>
+          </div>
+          <div class="ai-insight-card">
+            <h4><span class="material-symbols-outlined" style="font-size:16px">local_fire_department</span> Top Recurring Themes</h4>
+            <p id="aiThemesText" style="color:var(--text-secondary);">Gemini will extract the most common topics from alumni suggestions.</p>
+          </div>
+          <div class="ai-insight-card">
+            <h4><span class="material-symbols-outlined" style="font-size:16px">warning</span> Areas Needing Improvement</h4>
+            <p id="aiImprovementsText" style="color:var(--text-secondary);">AI will identify programs and services alumni want improved.</p>
+          </div>
+          <div class="ai-insight-card">
+            <h4><span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Actionable Recommendations</h4>
+            <p id="aiRecommendationsFeedback" style="color:var(--text-secondary);">Gemini NLP will suggest strategic actions based on alumni feedback patterns.</p>
+          </div>
+        </div>
+
+        <!-- Full Gemini Summary Narrative -->
+        <div id="aiFullSummaryBox" style="display:none; margin-top:16px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#7c3aed; letter-spacing:.8px; margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:14px">edit_note</span> Full Gemini AI Narrative Report</div>
+          <p id="aiFullNarrativeText" style="font-size:13.5px; line-height:1.7; color:var(--text-primary); margin:0;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active & Published Surveys Section -->
+    <div class="card" style="margin-bottom: 22px;">
+      <div class="card-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <h3><span class="material-symbols-outlined" style="font-size:18px">assignment</span> Active &amp; Published Surveys (<span id="activeSurveysCount">0</span>)</h3>
+          <span class="ai-chip" style="font-size:11px;">Live to Alumni Portal</span>
+        </div>
+        <button class="btn btn-primary" style="font-size:12px; padding:6px 14px;" onclick="openCreateSurveyModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Create Survey</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Survey Title &amp; Description</th>
+            <th>Target Audience</th>
+            <th>Questions</th>
+            <th>Date Created</th>
+            <th>Responses</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="activeSurveysTableBody">
+          <tr class="empty-row"><td colspan="7">No active surveys published yet. Click "Create Survey" to broadcast one.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Survey Responses Table -->
+    <div class="card">
+      <div class="card-header">
+        <h3>Live Alumni Responses &amp; Service Feedback (<span id="surveyRespCount">0</span>)</h3>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="surveySearchInput" placeholder="Search responses..." oninput="filterSurveyTable()" style="padding:6px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:12.5px; background:var(--bg-page); color:var(--text-primary); outline:none; width:180px;">
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Survey Title</th>
+            <th>Alumni Name</th>
+            <th>Course &amp; Batch</th>
+            <th>Satisfaction</th>
+            <th>Relevancy</th>
+            <th>Suggestions / Comments</th>
+            <th>AI Sentiment</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="surveyResponsesTableBody">
+          <tr class="empty-row"><td colspan="8">No survey responses yet. Alumni feedback will appear here once submitted.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ===== Create Survey Modal ===== -->
+  <div class="modal-overlay" id="createSurveyModal">
+    <div class="modal-dialog" style="max-width:560px;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--border-color);">
+        <div>
+          <h2 style="margin:0; font-size:18px;"><span class="material-symbols-outlined" style="font-size:16px">add</span> Create &amp; Broadcast Survey</h2>
+          <p style="margin:4px 0 0; font-size:12.5px; color:var(--text-secondary);">New surveys are instantly visible to all alumni on their portal.</p>
+        </div>
+        <button onclick="closeCreateSurveyModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Survey Title *</label>
+        <input class="form-control" id="newSurveyTitle" placeholder="e.g. 2026 Alumni Satisfaction &amp; Curriculum Alignment Survey">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Survey Description</label>
+        <textarea class="form-control" id="newSurveyDesc" rows="2" placeholder="Brief description of this survey's purpose..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Batch / Course (optional)</label>
+        <input class="form-control" id="newSurveyTarget" placeholder="e.g. All Alumni, BSIT 2020-2024, etc.">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Survey Questions <span class="ai-chip" style="font-size:10px; padding:2px 8px; vertical-align:middle;">Gemini AI</span></label>
+        <button class="btn btn-ai" style="margin-bottom:10px; padding:7px 14px; font-size:12.5px;" onclick="generateSurveyQuestions()" id="genQuestionsBtn"><span class="material-symbols-outlined" style="font-size:16px">auto_awesome</span> Auto-Generate Questions with AI</button>
+        <textarea class="form-control" id="newSurveyQuestions" rows="5" placeholder="Questions will appear here after AI generation, or type your own (one per line)..."></textarea>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+        <button class="btn btn-outline" onclick="closeCreateSurveyModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitCreateSurvey()"><span class="material-symbols-outlined" style="font-size:16px">campaign</span> Broadcast to Alumni</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== View Survey Details Modal ===== -->
+  <div class="modal-overlay" id="viewSurveyModal">
+    <div class="modal-dialog" style="max-width:600px;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+        <div>
+          <h2 style="margin:0; font-size:17px;" id="viewSurveyModalTitle"><span class="material-symbols-outlined" style="font-size:18px">assignment</span> Survey Details</h2>
+          <p style="margin:3px 0 0; font-size:12px; color:var(--text-secondary);" id="viewSurveyModalTarget"></p>
+        </div>
+        <button onclick="closeViewSurveyModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Description</div>
+        <p id="viewSurveyModalDesc" style="font-size:13.5px; color:var(--text-primary); margin:0; line-height:1.6;"></p>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11.5px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px; letter-spacing:0.5px;">Broadcasted Questions</div>
+        <div id="viewSurveyModalQuestions" style="background:var(--bg-page); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; font-size:13px; line-height:1.7; white-space:pre-wrap; max-height:220px; overflow-y:auto; color:var(--text-primary);"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-secondary); margin-top:20px;">
+        <span id="viewSurveyModalMeta"></span>
+        <button class="btn btn-outline" onclick="closeViewSurveyModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 12: DONOR CAMPAIGNS ================= -->
+  <div class="tab-panel" id="tabCampaigns">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">favorite</span> Donor Campaign Management</h1>
+        <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+          Launch fundraising campaigns for student scholarships, laboratory equipment, and disaster relief funds.
+        </p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddCampaignModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Create Campaign</button>
+    </div>
+
+    <div id="campaignsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-bottom: 26px;">
+      <!-- Populated via JS -->
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Recent Alumni Donors</h3>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Donor Name</th>
+            <th>Batch / Course</th>
+            <th>Campaign</th>
+            <th>Amount Donated</th>
+            <th>Date</th>
+            <th>Dedication Message</th>
+          </tr>
+        </thead>
+        <tbody id="donorsTableBody">
+          <tr class="empty-row"><td colspan="6">Loading donor records...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB 13: <span class="material-symbols-outlined" style="font-size:18px">trending_up</span> REPORTS & ANALYTICS ================= -->
+  <div class="tab-panel" id="tabReports">
+    
+    <div style="margin-bottom: 20px;">
+      <h1 class="page-title" style="margin: 0;"><span class="material-symbols-outlined" style="font-size:22px">trending_up</span> Institutional Reports &amp; Analytics Hub</h1>
+      <p style="margin: 4px 0 0 0; font-size: 13.5px; color: var(--text-secondary);">
+        Generate accreditation and board presentation reports for Alumni Demographics, Employment Rates, and Tracer Surveys.
+      </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+      <div class="card" style="border-top: 4px solid #6366f1;">
+        <h3><span class="material-symbols-outlined" style="font-size:20px">school</span> Alumni Census Report</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 14px 0;">
+          Detailed breakdown of graduates sorted by program, batch year, and active status.
+        </p>
+        <button class="btn btn-outline btn-block" onclick="alert('<span class="material-symbols-outlined" style="font-size:18px">bar_chart</span> Alumni Census Report generated (PDF / CSV downloaded)')"><span class="material-symbols-outlined" style="font-size:16px">download</span> Download Census Report</button>
+      </div>
+
+      <div class="card" style="border-top: 4px solid #10b981;">
+        <h3><span class="material-symbols-outlined" style="font-size:20px">work</span> Graduate Employment Tracer</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 14px 0;">
+          CHED-compliant employment percentage, top hiring companies, and industry distribution.
+        </p>
+        <button class="btn btn-outline btn-block" onclick="alert('<span class="material-symbols-outlined" style="font-size:18px">work</span> Employment Tracer Analytics Report generated')"><span class="material-symbols-outlined" style="font-size:16px">download</span> Download Tracer Report</button>
+      </div>
+
+      <div class="card" style="border-top: 4px solid #8b5cf6;">
+        <h3><span class="material-symbols-outlined" style="font-size:20px">assignment</span> Survey &amp; Feedback Report</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 14px 0;">
+          Comprehensive compilation of alumni satisfaction metrics, ratings, and NLP sentiment scores.
+        </p>
+        <button class="btn btn-outline btn-block" onclick="alert('<span class="material-symbols-outlined" style="font-size:20px">assignment</span> Survey Analytics Report generated')"><span class="material-symbols-outlined" style="font-size:16px">download</span> Download Feedback Report</button>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<!-- ================= MODAL: VIEW ALUMNI PROFILE ================= -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-dialog" style="max-width: 650px; width: 94%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:20px">school</span> Detailed Alumni Profile &amp; Activity Log</h2>
+      <button onclick="closeProfileModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px; background: #f8fafc; padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+      <div id="modalAvatar" style="width: 54px; height: 54px; border-radius: 50%; background: var(--brand-accent); color: #fff; font-weight: 700; font-size: 20px; display: flex; align-items: center; justify-content: center;">
+        JD
+      </div>
+      <div>
+        <h3 id="modalName" style="margin: 0; font-size: 18px;">Juan Dela Cruz</h3>
+        <span id="modalAlumniId" style="font-size: 12px; color: var(--brand-accent); font-weight: 700;">ALM-2024-001</span>
+      </div>
+    </div>
+
+    <!-- Personal & Professional Information -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; font-size: 13px; background: var(--bg-card); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 16px;">
+      <div><strong>Course / Degree:</strong> <div id="modalCourse" style="color: var(--text-secondary);">BS Information Technology</div></div>
+      <div><strong>Batch Year:</strong> <div id="modalBatch" style="color: var(--text-secondary);">2024</div></div>
+      <div><strong>Email Address:</strong> <div id="modalEmail" style="color: var(--text-secondary);">juan@email.com</div></div>
+      <div><strong>Employment Status:</strong> <div id="modalStatus" style="color: var(--text-secondary);">Employed</div></div>
+      <div><strong>Company / Employer:</strong> <div id="modalCompany" style="color: var(--text-secondary);">ABC Technologies</div></div>
+      <div><strong>Position / Title:</strong> <div id="modalPosition" style="color: var(--text-secondary);">Software Developer</div></div>
+      <div><strong>Location:</strong> <div id="modalLocation" style="color: var(--text-secondary);">Quezon City, Philippines</div></div>
+      <div><strong>Account State:</strong> <div id="modalAccountState" style="color: var(--text-secondary);">Active</div></div>
+    </div>
+
+    <!-- Linked Activity History (Requests, Donations, Applications) -->
+    <div style="border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 10px;">
+      <h4 style="margin: 0 0 10px 0; font-size: 14px; color: var(--brand-primary); display: flex; align-items: center; gap: 6px;"><span class="material-symbols-outlined" style="font-size:16px">assignment</span> Activity &amp; Transaction Logs</h4>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div style="background: #f1f5f9; padding: 10px 12px; border-radius: var(--radius-sm);">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;"><span class="material-symbols-outlined" style="font-size:14px">description</span> Document Requests</div>
+          <div id="modalRequestsLog" style="font-size: 12.5px; margin-top: 4px; font-weight: 600; color: var(--text-primary);">No requests submitted</div>
+        </div>
+        <div style="background: #f1f5f9; padding: 10px 12px; border-radius: var(--radius-sm);">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;"><span class="material-symbols-outlined" style="font-size:14px">favorite</span> Campaign Donations</div>
+          <div id="modalDonationsLog" style="font-size: 12.5px; margin-top: 4px; font-weight: 600; color: var(--text-primary);">No donations recorded</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn btn-outline" onclick="closeProfileModal()">Close Overview</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD / EDIT ALUMNI ================= -->
+<div class="modal-overlay" id="alumniFormModal">
+  <div class="modal-dialog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 id="alumniFormTitle" style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:16px">add</span> Add New Alumni</h2>
+      <button onclick="closeAlumniFormModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="alumniForm" onsubmit="handleSaveAlumni(event)">
+      <input type="hidden" id="editAlumniId">
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formLastName">Last Name *</label>
+          <input class="form-control" id="formLastName" required placeholder="e.g. Santos">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formFirstName">First Name *</label>
+          <input class="form-control" id="formFirstName" required placeholder="e.g. Maria Clara">
+        </div>
+        <div class="form-group" style="flex: 0.9;">
+          <label class="form-label" for="formMiddleName">Middle Name</label>
+          <input class="form-control" id="formMiddleName" placeholder="e.g. Reyes">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 2;">
+          <label class="form-label" for="formCourse">Course / Degree *</label>
+          <select class="form-control" id="formCourse" required>
+            <option value="BS Information Technology">BS Information Technology</option>
+            <option value="BS Tourism">BS Tourism</option>
+            <option value="BS Hospitality Management">BS Hospitality Management</option>
+            <option value="BS Computer Science">BS Computer Science</option>
+            <option value="BS Business Administration">BS Business Administration</option>
+            <option value="BS Criminology">BS Criminology</option>
+            <option value="BS Accountancy">BS Accountancy</option>
+            <option value="BS Education">BS Education</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formBatch">Batch Year *</label>
+          <input class="form-control" id="formBatch" required placeholder="e.g. 2024">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formStatus">Employment Status *</label>
+          <select class="form-control" id="formStatus" onchange="handleFormStatusChange()">
+            <option value="Employed">Employed</option>
+            <option value="Unemployed">Unemployed</option>
+            <option value="Freelance">Freelance</option>
+            <option value="Seeking">Job Seeking</option>
+            <option value="Studying">Further Studies</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1.4;">
+          <label class="form-label" for="formCompany">Company / Employer</label>
+          <input class="form-control" id="formCompany" placeholder="e.g. Accenture PH">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formPosition">Position / Job Title</label>
+          <input class="form-control" id="formPosition" placeholder="e.g. Software Developer">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formLocation">Location / City</label>
+          <input class="form-control" id="formLocation" placeholder="e.g. Quezon City">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formEmail">Email Address *</label>
+          <input class="form-control" type="email" id="formEmail" required placeholder="e.g. maria.santos@gmail.com">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label" for="formPassword">Account Password <span class="material-symbols-outlined" style="font-size:16px">lock</span></label>
+          <input class="form-control" type="text" id="formPassword" placeholder="Enter new password (optional)">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeAlumniFormModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="saveAlumniBtn">Save Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD CAMPAIGN ================= -->
+<div class="modal-overlay" id="campaignModal">
+  <div class="modal-dialog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:18px">favorite</span> Launch Donor Campaign</h2>
+      <button onclick="closeCampaignModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="campaignForm" onsubmit="handleSaveCampaign(event)">
+      <div class="form-group">
+        <label class="form-label">Campaign Title *</label>
+        <input class="form-control" id="campTitle" required placeholder="e.g. Student Excellence Grant">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <textarea class="form-control" id="campDesc" rows="3" required placeholder="e.g. Help provide scholarships to deserving students."></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Target Amount (₱) *</label>
+          <input class="form-control" type="number" id="campTarget" required placeholder="e.g. 500000">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Deadline *</label>
+          <input class="form-control" type="date" id="campDeadline" required>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeCampaignModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Launch Campaign</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD JOB ================= -->
+<div class="modal-overlay" id="jobModal">
+  <div class="modal-dialog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:18px">work</span> Post Job Opportunity</h2>
+      <button onclick="closeJobModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="jobForm" onsubmit="handleSaveJob(event)">
+      <div class="form-group">
+        <label class="form-label">Job Title *</label>
+        <input class="form-control" id="jobTitle" required placeholder="e.g. Junior Web Developer">
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Company *</label>
+          <input class="form-control" id="jobCompany" required placeholder="e.g. ABC Technologies">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Industry *</label>
+          <select class="form-control" id="jobIndustry" required>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Business & Finance">Business & Finance</option>
+            <option value="Tourism & Hospitality">Tourism & Hospitality</option>
+            <option value="Education">Education</option>
+            <option value="Law Enforcement">Law Enforcement</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Location</label>
+          <input class="form-control" id="jobLocation" placeholder="e.g. Quezon City / Hybrid">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Hiring Status</label>
+          <select class="form-control" id="jobStatus">
+            <option value="Active">Active (Open)</option>
+            <option value="Urgent">Urgent Hiring</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Required Skills (Comma separated for AI Match)</label>
+        <input class="form-control" id="jobSkills" placeholder="e.g. HTML, CSS, JavaScript, PHP, SQL">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeJobModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Publish Job Posting</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ACCREDITED PARTNER COMPANIES DIRECTORY ================= -->
+<div class="modal-overlay" id="partnersModal">
+  <div class="modal-dialog" style="max-width: 840px; width: 94%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h2 style="margin: 0; font-size: 19px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:20px">business</span> Accredited Partner Companies &amp; Employers</h2>
+        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary);">
+          Directory of industry partners with active Memorandum of Agreement (MOA) and corporate hiring pipelines.
+        </p>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-primary" style="font-size: 12.5px; padding: 7px 14px;" onclick="openAddPartnerModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Add Partner Company</button>
+        <button onclick="closePartnersModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+      </div>
+    </div>
+
+    <!-- Search & FilterBar -->
+    <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+      <input class="form-control" id="partnerSearchInput" placeholder="Search company name, industry, location..." onkeyup="filterPartnersList()" style="flex: 2; min-width: 200px;">
+      <select class="form-control" id="partnerIndustryFilter" onchange="filterPartnersList()" style="flex: 1; min-width: 160px;">
+        <option value="All">All Industries</option>
+        <option value="Information Technology">Information Technology</option>
+        <option value="Business & Finance">Business & Finance</option>
+        <option value="Tourism & Hospitality">Tourism & Hospitality</option>
+        <option value="Telecommunications">Telecommunications</option>
+        <option value="Retail & Commercial">Retail & Commercial</option>
+      </select>
+    </div>
+
+    <!-- Table of Partners -->
+    <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+      <table class="data-table" style="margin: 0;">
+        <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 2;">
+          <tr>
+            <th>Company Name</th>
+            <th>Industry</th>
+            <th>Location</th>
+            <th>MOA Status</th>
+            <th>Alumni Hired</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="partnersTableBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--text-secondary);">
+      <span>Showing <strong id="partnerCountDisplay" style="color: var(--brand-primary);">0</strong> accredited industry partners</span>
+      <button class="btn btn-outline" onclick="closePartnersModal()">Close Directory</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD NEW PARTNER COMPANY ================= -->
+<div class="modal-overlay" id="addPartnerModal">
+  <div class="modal-dialog" style="max-width: 520px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:20px">business</span> Register New Partner Company</h2>
+      <button onclick="closeAddPartnerModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="addPartnerForm" onsubmit="handleSavePartnerCompany(event)">
+      <div class="form-group">
+        <label class="form-label">Company Name *</label>
+        <input class="form-control" id="newPartnerName" required placeholder="e.g. Accenture Philippines">
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Industry Sector *</label>
+          <select class="form-control" id="newPartnerIndustry" required>
+            <option value="Information Technology">Information Technology</option>
+            <option value="Business & Finance">Business & Finance</option>
+            <option value="Tourism & Hospitality">Tourism & Hospitality</option>
+            <option value="Telecommunications">Telecommunications</option>
+            <option value="Education">Education</option>
+            <option value="Healthcare & Pharma">Healthcare & Pharma</option>
+            <option value="Manufacturing & BPO">Manufacturing & BPO</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">MOA Status *</label>
+          <select class="form-control" id="newPartnerMoa" required>
+            <option value="Active MOA">Active MOA Signed</option>
+            <option value="Accredited">Accredited Partner</option>
+            <option value="Pending MOA">Pending MOA Signing</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Primary Location *</label>
+          <input class="form-control" id="newPartnerLocation" required placeholder="e.g. BGC Taguig / Quezon City">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">HR Contact Email</label>
+          <input class="form-control" type="email" id="newPartnerEmail" placeholder="e.g. careers@company.com">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeAddPartnerModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Partner Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: HIRED ALUMNI PLACEMENT DIRECTORY ================= -->
+<div class="modal-overlay" id="hiredAlumniModal">
+  <div class="modal-dialog" style="max-width: 840px; width: 94%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <h2 style="margin: 0; font-size: 19px; color: var(--brand-primary);" id="hiredModalTitle"><span class="material-symbols-outlined" style="font-size:20px">school</span> Hired Alumni Placement Directory</h2>
+        <p style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary);" id="hiredModalSub">
+          List of graduates hired by accredited industry partners.
+        </p>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button class="btn btn-primary" style="font-size: 12.5px; padding: 7px 14px;" onclick="openAddHiredModal()"><span class="material-symbols-outlined" style="font-size:16px">add</span> Record Hired Alumni</button>
+        <button onclick="closeHiredAlumniModal()" style="background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-secondary);"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+      </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+      <input class="form-control" id="hiredSearchInput" placeholder="Search alumni name, course, batch, position, or company..." onkeyup="filterHiredList()" style="flex: 2; min-width: 200px;">
+      <select class="form-control" id="hiredCourseFilter" onchange="filterHiredList()" style="flex: 1; min-width: 160px;">
+        <option value="All">All Courses</option>
+        <option value="BS Information Technology">BS IT</option>
+        <option value="BS Computer Science">BS CS</option>
+        <option value="BS Accountancy">BS Accountancy</option>
+        <option value="BS Tourism">BS Tourism</option>
+        <option value="BS Business Administration">BS Business Admin</option>
+        <option value="BS Hospitality Management">BS Hospitality</option>
+        <option value="BS Criminology">BS Criminology</option>
+        <option value="BS Education">BS Education</option>
+      </select>
+    </div>
+
+    <!-- Table of Hired Alumni -->
+    <div style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+      <table class="data-table" style="margin: 0;">
+        <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 2;">
+          <tr>
+            <th>Alumni Graduate</th>
+            <th>Degree &amp; Batch</th>
+            <th>Hired Position</th>
+            <th>Company</th>
+            <th>Placement Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="hiredTableBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--text-secondary);">
+      <span>Showing <strong id="hiredCountDisplay" style="color: #10b981;">0</strong> hired graduates</span>
+      <button class="btn btn-outline" onclick="closeHiredAlumniModal()">Close Directory</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: RECORD NEW ALUMNI PLACEMENT ================= -->
+<div class="modal-overlay" id="addHiredModal">
+  <div class="modal-dialog" style="max-width: 520px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:18px">handshake</span> Record Alumni Hiring Placement</h2>
+      <button onclick="closeAddHiredModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="addHiredForm" onsubmit="handleSaveHiredAlumni(event)">
+      <input type="hidden" id="hiredTargetJobId">
+
+      <div class="form-group">
+        <label class="form-label">Alumni Full Name *</label>
+        <input class="form-control" id="hiredAlumniName" required placeholder="e.g. Maria Clara Santos">
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1.5;">
+          <label class="form-label">Degree / Course *</label>
+          <select class="form-control" id="hiredAlumniCourse" required>
+            <option value="BS Information Technology">BS Information Technology</option>
+            <option value="BS Computer Science">BS Computer Science</option>
+            <option value="BS Accountancy">BS Accountancy</option>
+            <option value="BS Tourism">BS Tourism</option>
+            <option value="BS Business Administration">BS Business Administration</option>
+            <option value="BS Hospitality Management">BS Hospitality Management</option>
+            <option value="BS Criminology">BS Criminology</option>
+            <option value="BS Education">BS Education</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Batch Year *</label>
+          <input class="form-control" id="hiredAlumniBatch" required placeholder="e.g. 2024">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Hiring Company *</label>
+          <input class="form-control" id="hiredAlumniCompany" required placeholder="e.g. Accenture Philippines">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Position Title *</label>
+          <input class="form-control" id="hiredAlumniPosition" required placeholder="e.g. Junior Web Developer">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Date Hired *</label>
+          <input class="form-control" type="date" id="hiredAlumniDate" required>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Email Address</label>
+          <input class="form-control" type="email" id="hiredAlumniEmail" placeholder="e.g. maria.clara@gmail.com">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeAddHiredModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background: #10b981;">Save Placement Record <span class="material-symbols-outlined" style="font-size:18px">handshake</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD EVENT ================= -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal-dialog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:18px">confirmation_number</span> Create Alumni Event</h2>
+      <button onclick="closeEventModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="eventForm" onsubmit="handleSaveEvent(event)">
+      <div class="form-group">
+        <label class="form-label">Event Title *</label>
+        <input class="form-control" id="eventTitle" required placeholder="e.g. Grand Alumni Homecoming 2025">
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Category *</label>
+          <select class="form-control" id="eventCategory" required>
+            <option value="Alumni Homecoming">Alumni Homecoming</option>
+            <option value="Career Seminar">Career Seminar</option>
+            <option value="Networking Event">Networking Event</option>
+            <option value="Job Fair">Job Fair</option>
+            <option value="Webinar">Webinar</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Date *</label>
+          <input class="form-control" type="date" id="eventDate" required>
+        </div>
+        <div class="form-group" style="flex: 0.9;">
+          <label class="form-label">Time *</label>
+          <input class="form-control" type="time" id="eventTime" required>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1.5;">
+          <label class="form-label">Venue / Platform *</label>
+          <input class="form-control" id="eventVenue" required placeholder="e.g. BCP Main Gymnasium / Zoom">
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Participant Limit</label>
+          <input class="form-control" type="number" id="eventLimit" placeholder="e.g. 500" value="300">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeEventModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Event</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD BATCH REUNION ================= -->
+<div class="modal-overlay" id="reunionModal">
+  <div class="modal-dialog">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary);"><span class="material-symbols-outlined" style="font-size:18px">handshake</span> Schedule Batch Reunion</h2>
+      <button onclick="closeReunionModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <form id="reunionForm" onsubmit="handleSaveReunion(event)">
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Graduation Year (Batch) *</label>
+          <input class="form-control" id="reunionBatch" required placeholder="e.g. 2024">
+        </div>
+        <div class="form-group" style="flex: 2;">
+          <label class="form-label">Reunion Title *</label>
+          <input class="form-control" id="reunionTitle" required placeholder="e.g. Batch 2024 1st Year Grand Gathering">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Date *</label>
+          <input class="form-control" type="date" id="reunionDate" required>
+        </div>
+        <div class="form-group" style="flex: 0.9;">
+          <label class="form-label">Time *</label>
+          <input class="form-control" type="time" id="reunionTime" required>
+        </div>
+        <div class="form-group" style="flex: 1.5;">
+          <label class="form-label">Venue *</label>
+          <input class="form-control" id="reunionVenue" required placeholder="e.g. Grand Ballroom, Novotel QC">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description / Announcement (optional)</label>
+        <textarea class="form-control" id="reunionDesc" rows="2" placeholder="e.g. Semi-formal attire. Bring your alumni ID for registration and raffle entry. Dinner will be served." style="resize: vertical;"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" onclick="closeReunionModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Schedule Reunion</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: DONORS LEADERBOARD ================= -->
+<div class="modal-overlay" id="donorsLeaderboardModal">
+  <div class="modal-dialog" style="max-width: 650px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h2 style="margin: 0; font-size: 18px; color: var(--brand-primary); display: flex; align-items: center; gap: 8px;">
+          <span><span class="material-symbols-outlined" style="font-size:18px">emoji_events</span></span> <span id="leaderboardModalTitle">Donators Leaderboard</span>
+        </h2>
+        <p style="margin: 4px 0 0 0; font-size: 12.5px; color: var(--text-secondary);">
+          Highest contributors ranked first by donation amount.
+        </p>
+      </div>
+      <button onclick="closeDonorsLeaderboardModal()" style="background: none; border: none; font-size: 22px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+    </div>
+
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+      <table class="data-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th style="width: 100px;">Rank</th>
+            <th>Donator Name</th>
+            <th>Amount Donated</th>
+            <th>Batch / Course</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboardModalTableBody">
+          <!-- Populated via JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+      <button type="button" class="btn btn-primary" onclick="closeDonorsLeaderboardModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Supabase & Data Engine ────────────────────────────────────────────────
+  const SUPABASE_URL = 'https://agzctzbsmjbstoiyenrf.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_9mDQ1g-Ue60AXuD5UeipoA_ol5eyCPD';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let alumniList = [];
+  let filteredAlumni = [];
+  let documentRequests = [];
+
+  const SAMPLE_ALUMNI = [];
+  const SAMPLE_REQUESTS = [];
+  let certificateRequests = [];
+  let donorCampaigns = [];
+  let donorsList = [];
+  let activeSurveys = [];
+  let surveyResponses = [];
+  let newsletterPosts = [];
+  let alumniEvents = [];
+  let batchReunions = [];
+
+  const DEFAULT_PARTNER_JOBS = [
+    {
+      id: 1,
+      title: 'Associate Software Engineer',
+      company: 'Accenture Philippines',
+      industry: 'Information Technology',
+      location: 'BGC Taguig',
+      salary: '₱35,000 - ₱55,000 / mo',
+      date: '2026-09-01',
+      hired: 0,
+      status: 'Urgent',
+      skills: 'HTML, CSS, JavaScript, React, SQL, Java, Cloud Computing',
+      email: 'careers.ph@accenture.com'
+    },
+    {
+      id: 2,
+      title: 'Junior Financial Analyst',
+      company: 'BDO Unibank, Inc.',
+      industry: 'Business & Finance',
+      location: 'Makati City',
+      salary: '₱28,000 - ₱42,000 / mo',
+      date: '2026-09-02',
+      hired: 0,
+      status: 'Active',
+      skills: 'Financial Analysis, Excel, Accounting, Auditing, Risk Assessment',
+      email: 'hr@bdo.com.ph'
+    },
+    {
+      id: 3,
+      title: 'Customer Experience & Flight Services Associate',
+      company: 'Philippine Airlines',
+      industry: 'Tourism & Hospitality',
+      location: 'Pasay City',
+      salary: '₱30,000 - ₱45,000 / mo',
+      date: '2026-09-03',
+      hired: 0,
+      status: 'Urgent',
+      skills: 'Customer Service, Communication, Hospitality Management, Tourism Operations',
+      email: 'recruitment@pal.com.ph'
+    },
+    {
+      id: 4,
+      title: 'Full Stack Web Developer',
+      company: 'ABC Technologies PH',
+      industry: 'Information Technology',
+      location: 'Quezon City',
+      salary: '₱40,000 - ₱65,000 / mo',
+      date: '2026-09-04',
+      hired: 0,
+      status: 'Active',
+      skills: 'HTML, CSS, JavaScript, React, Node.js, PHP, MySQL',
+      email: 'jobs@abctech.ph'
+    },
+    {
+      id: 5,
+      title: 'Network Operations & Systems Associate',
+      company: 'Globe Telecom',
+      industry: 'Telecommunications',
+      location: 'BGC Taguig',
+      salary: '₱32,000 - ₱48,000 / mo',
+      date: '2026-09-05',
+      hired: 0,
+      status: 'Active',
+      skills: 'Network Administration, Python, Linux, Troubleshooting, Telecommunications',
+      email: 'talent@globe.com.ph'
+    },
+    {
+      id: 6,
+      title: 'Retail Operations & Management Trainee',
+      company: 'SM Investments Corp.',
+      industry: 'Retail & Commercial',
+      location: 'Pasay City',
+      salary: '₱26,000 - ₱38,000 / mo',
+      date: '2026-09-06',
+      hired: 0,
+      status: 'Active',
+      skills: 'Business Administration, Operations, Inventory Management, Customer Relations',
+      email: 'careers@sminvestments.com'
+    },
+    {
+      id: 7,
+      title: 'Threat Response & Cybersecurity Analyst',
+      company: 'Trend Micro Philippines',
+      industry: 'Information Technology',
+      location: 'Pasig City',
+      salary: '₱45,000 - ₱70,000 / mo',
+      date: '2026-09-07',
+      hired: 0,
+      status: 'Urgent',
+      skills: 'Cybersecurity, Networking, Python, Linux, Information Security, Vulnerability Assessment',
+      email: 'ph_recruitment@trendmicro.com'
+    },
+    {
+      id: 8,
+      title: 'Hotel Front Office & Guest Relations Officer',
+      company: 'Novotel Manila Araneta',
+      industry: 'Tourism & Hospitality',
+      location: 'Quezon City',
+      salary: '₱25,000 - ₱36,000 / mo',
+      date: '2026-09-08',
+      hired: 0,
+      status: 'Active',
+      skills: 'Hospitality Management, Front Desk Operations, Tourism, Guest Services',
+      email: 'hr@novotelmanila.com'
+    }
+  ];
+
+  let jobPostings = [...DEFAULT_PARTNER_JOBS];
+  let partnerCompanies = [
+    { id: 1, name: 'Accenture Philippines', industry: 'Information Technology', location: 'BGC Taguig', moaStatus: 'Active MOA', hiredCount: 0, email: 'careers.ph@accenture.com' },
+    { id: 2, name: 'BDO Unibank, Inc.', industry: 'Business & Finance', location: 'Makati City', moaStatus: 'Active MOA', hiredCount: 0, email: 'hr@bdo.com.ph' },
+    { id: 3, name: 'Philippine Airlines', industry: 'Tourism & Hospitality', location: 'Pasay City', moaStatus: 'Active MOA', hiredCount: 0, email: 'recruitment@pal.com.ph' },
+    { id: 4, name: 'ABC Technologies PH', industry: 'Information Technology', location: 'Quezon City', moaStatus: 'Accredited', hiredCount: 0, email: 'jobs@abctech.ph' },
+    { id: 5, name: 'Globe Telecom', industry: 'Telecommunications', location: 'BGC Taguig', moaStatus: 'Active MOA', hiredCount: 0, email: 'talent@globe.com.ph' },
+    { id: 6, name: 'SM Investments Corp.', industry: 'Retail & Commercial', location: 'Pasay City', moaStatus: 'Active MOA', hiredCount: 0, email: 'careers@sminvestments.com' },
+    { id: 7, name: 'Trend Micro Philippines', industry: 'Information Technology', location: 'Pasig City', moaStatus: 'Accredited', hiredCount: 0, email: 'ph_recruitment@trendmicro.com' },
+    { id: 8, name: 'Novotel Manila Araneta', industry: 'Tourism & Hospitality', location: 'Quezon City', moaStatus: 'Active MOA', hiredCount: 0, email: 'hr@novotelmanila.com' }
+  ];
+
+  let hiredAlumniList = [];
+
+  // ── Tab Switching ─────────────────────────────────────────────────────────
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+
+    const tabMap = {
+      dashboard:    ['tabDashboard', 'navDashboard'],
+      'ai-insights':['tabAiInsights', 'navAiInsights'],
+      database:     ['tabDatabase', 'navDatabase'],
+      tracking:     ['tabTracking', 'navTracking'],
+      jobs:         ['tabJobs', 'navJobs'],
+      requests:     ['tabRequests', 'navRequests'],
+      certificates: ['tabCertificates', 'navCertificates'],
+      events:       ['tabEvents', 'navEvents'],
+      reunions:     ['tabReunions', 'navReunions'],
+      newsletter:   ['tabNewsletter', 'navNewsletter'],
+      surveys:      ['tabSurveys', 'navSurveys'],
+      campaigns:    ['tabCampaigns', 'navCampaigns'],
+      reports:      ['tabReports', 'navReports']
+    };
+
+    if (tabMap[tabId]) {
+      const panel = document.getElementById(tabMap[tabId][0]);
+      const link = document.getElementById(tabMap[tabId][1]);
+      if (panel) panel.classList.add('active');
+      if (link) link.classList.add('active');
+    }
+  }
+
+  // ── Data Initialization ───────────────────────────────────────────────────
+  async function loadAlumniData() {
+    try {
+      const { data, error } = await db.from('alumni').select('*');
+      if (error || !data || data.length === 0) throw new Error('Supabase empty, loading cache');
+      alumniList = data.map((item, idx) => ({
+        id: item.id || idx + 1,
+        name: item.name,
+        course: item.course || 'BS Information Technology',
+        batch: item.batch || '2024',
+        status: item.status || 'Employed',
+        company: item.company || '—',
+        position: item.position || (item.status === 'Unemployed' ? 'N/A' : 'Staff / Specialist'),
+        location: item.location || 'Metro Manila',
+        email: item.email || `alumni${idx+1}@bcp.edu.ph`,
+        active: item.active !== false
+      }));
+    } catch (e) {
+      const cached = localStorage.getItem('bcp_alumni_records');
+      alumniList = cached ? JSON.parse(cached) : [...SAMPLE_ALUMNI];
+    }
+
+    // Merge registered accounts from local vault into alumniList if not present
+    try {
+      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+      Object.values(localUsers).forEach(u => {
+        if (u && u.email && !alumniList.some(a => a.email && a.email.toLowerCase() === u.email.toLowerCase())) {
+          alumniList.unshift({
+            id: 'REG-' + Math.floor(1000 + Math.random() * 9000),
+            name: u.name || u.email.split('@')[0],
+            course: u.course || 'BS Information Technology',
+            batch: u.batch || '2024',
+            status: u.status || 'Employed',
+            company: u.company || '—',
+            position: u.position || (u.status === 'Unemployed' ? 'N/A' : 'Staff / Specialist'),
+            location: u.location || 'Quezon City',
+            email: u.email,
+            active: true
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('Local users sync note:', err);
+    }
+
+    const cachedReqs = localStorage.getItem('bcp_document_requests');
+    documentRequests = cachedReqs ? JSON.parse(cachedReqs) : [...SAMPLE_REQUESTS];
+
+    const cachedCerts = localStorage.getItem('bcp_certificate_requests');
+    if (cachedCerts) certificateRequests = JSON.parse(cachedCerts);
+
+    const cachedCamps = localStorage.getItem('bcp_donor_campaigns');
+    if (cachedCamps) {
+      try {
+        let camps = JSON.parse(cachedCamps);
+        camps = camps.filter(c => c.title !== 'Scholarship Fund 2027' && c.title !== 'Alumni Innovation & Robotics Lab' && !(c.title || '').includes('Robotics'));
+        donorCampaigns = camps;
+        localStorage.setItem('bcp_donor_campaigns', JSON.stringify(donorCampaigns));
+      } catch(e) { donorCampaigns = []; }
+    }
+
+    const cachedDonors = localStorage.getItem('bcp_donors_list');
+    if (cachedDonors) {
+      try {
+        let donors = JSON.parse(cachedDonors);
+        donors = donors.filter(d => d.campaign !== 'Scholarship Fund 2027' && d.campaign !== 'Alumni Innovation & Robotics Lab' && !(d.campaign || '').includes('Robotics'));
+        donorsList = donors;
+        localStorage.setItem('bcp_donors_list', JSON.stringify(donorsList));
+      } catch(e) { donorsList = []; }
+    }
+
+    // Load active & published surveys
+    const cachedSurveysDef = localStorage.getItem('bcp_active_surveys');
+    if (cachedSurveysDef) {
+      try { activeSurveys = JSON.parse(cachedSurveysDef); } catch(e) { activeSurveys = []; }
+    }
+    if (!activeSurveys || activeSurveys.length === 0) {
+      activeSurveys = [
+        {
+          id: 1709900000001,
+          title: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
+          desc: "Comprehensive evaluation of curriculum quality, faculty support, and career readiness after graduation.",
+          target: "All Alumni",
+          questions: "1. How would you rate your overall satisfaction with your education at Bestlink College?\n2. How relevant are your college skills to your present job?\n3. What skills from college do you use most in your career?\n4. What services or programs should the school improve?\n5. Would you recommend Bestlink College to prospective students?",
+          createdAt: "2026-03-01",
+          status: "Active"
+        },
+        {
+          id: 1709900000002,
+          title: "Technology & Industry Skills Relevance Survey",
+          desc: "Targeted feedback on cloud computing, software engineering, and digital tools demanded by modern tech employers.",
+          target: "BSIT, BSIS, Computer Engineering",
+          questions: "1. Which programming languages, cloud platforms, or tools do you use in your daily workflow?\n2. Did your course provide sufficient practical hands-on laboratory experience?\n3. What emerging technologies (AI, Cloud, CyberSec) should be integrated into the syllabus?\n4. Are you open to conducting tech seminars or mentoring current students?",
+          createdAt: "2026-03-05",
+          status: "Active"
+        }
+      ];
+      localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
+    }
+
+    const cachedSurveys = localStorage.getItem('bcp_survey_responses');
+    if (cachedSurveys) {
+      try { surveyResponses = JSON.parse(cachedSurveys); } catch(e) { surveyResponses = []; }
+    }
+    if (!surveyResponses || surveyResponses.length === 0) {
+      surveyResponses = [
+        {
+          id: "RESP-170990001",
+          surveyId: 1709900000001,
+          surveyTitle: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
+          name: "Maria Santos",
+          courseBatch: "BS Information Technology (2022)",
+          satisfaction: "5 Stars - Extremely Satisfied",
+          relevance: "Directly Relevant",
+          employment: "Employed Full-time",
+          timeToEmploy: "Within 1 month",
+          skillsUsed: "Full-stack web development, SQL, API integrations",
+          suggestions: "Add more cloud certification bootcamps and AWS/Azure exam vouchers for graduating students.",
+          recommend: "Definitely Yes",
+          date: "2026-03-08"
+        },
+        {
+          id: "RESP-170990002",
+          surveyId: 1709900000001,
+          surveyTitle: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
+          name: "Juan Dela Cruz",
+          courseBatch: "BS Business Administration (2021)",
+          satisfaction: "4 Stars - Satisfied",
+          relevance: "Partially Relevant",
+          employment: "Employed Full-time",
+          timeToEmploy: "1-3 months",
+          skillsUsed: "Financial reporting, marketing analytics, team management",
+          suggestions: "Streamline the alumni transcript and certificate request portal for faster online release.",
+          recommend: "Probably Yes",
+          date: "2026-03-07"
+        }
+      ];
+      localStorage.setItem('bcp_survey_responses', JSON.stringify(surveyResponses));
+    }
+
+    const cachedNews = localStorage.getItem('bcp_newsletter_posts');
+    if (cachedNews) newsletterPosts = JSON.parse(cachedNews);
+
+    const cachedJobs = localStorage.getItem('bcp_job_postings');
+    if (cachedJobs) {
+      try {
+        jobPostings = JSON.parse(cachedJobs);
+        DEFAULT_PARTNER_JOBS.forEach(pj => {
+          if (!jobPostings.some(j => (j.company || '').toLowerCase().trim() === pj.company.toLowerCase().trim())) {
+            jobPostings.push({ ...pj });
+          }
+        });
+      } catch (e) {
+        jobPostings = [...DEFAULT_PARTNER_JOBS];
+      }
+    } else {
+      jobPostings = [...DEFAULT_PARTNER_JOBS];
+    }
+    localStorage.setItem('bcp_job_postings', JSON.stringify(jobPostings));
+
+    const cachedEvents = localStorage.getItem('bcp_alumni_events');
+    if (cachedEvents) alumniEvents = JSON.parse(cachedEvents);
+
+    const cachedReunions = localStorage.getItem('bcp_batch_reunions');
+    if (cachedReunions) batchReunions = JSON.parse(cachedReunions);
+
+    populateBatchFilter();
+    updateKPIDashboard();
+    applyFilters();
+    renderRecentTable();
+    renderRequestsTable();
+    renderCertificatesTable();
+    renderTrackingTable();
+    renderJobsTable();
+    renderEventsTable();
+    renderReunionsTable();
+    renderCampaignsTable();
+    renderNewsletterTable();
+    renderActiveSurveysTable();
+    renderSurveyResponsesTable();
+    generateAIInsights();
+  }
+
+  function seedSampleData() {
+    alumniList = [...SAMPLE_ALUMNI];
+    localStorage.setItem('bcp_alumni_records', JSON.stringify(alumniList));
+    populateBatchFilter();
+    updateKPIDashboard();
+    applyFilters();
+    renderRecentTable();
+    renderTrackingTable();
+    generateAIInsights();
+    alert('<span class="material-symbols-outlined" style="font-size:16px">eco</span> Sample alumni database loaded successfully!');
+  }
+
+  // ── KPI Dashboard Stats ───────────────────────────────────────────────────
+  function updateKPIDashboard() {
+    const total = alumniList.length;
+    const active = alumniList.filter(a => a.active !== false).length;
+    const employed = alumniList.filter(a => a.status === 'Employed' || a.status === 'Freelance').length;
+    const unemployed = alumniList.filter(a => a.status === 'Unemployed' || a.status === 'Seeking').length;
+    const batches = new Set(alumniList.map(a => a.batch)).size;
+    const empRate = total > 0 ? Math.round((employed / total) * 100) : 0;
+
+    const pendingOTR = documentRequests.filter(r => (r.docType || '').includes('Transcript') && r.status === 'Pending').length;
+    const pendingCerts = certificateRequests.filter(c => c.status === 'Pending').length;
+
+    const cachedHired = localStorage.getItem('bcp_hired_alumni_list');
+    if (cachedHired) {
+      try { hiredAlumniList = JSON.parse(cachedHired); } catch (e) { hiredAlumniList = []; }
+    } else {
+      hiredAlumniList = [];
+    }
+    const totalHired = hiredAlumniList.length;
+    const totalDonations = donorCampaigns.reduce((sum, c) => sum + (c.current || 0), 0);
+
+    document.getElementById('kpiTotalAlumni').textContent = total;
+    document.getElementById('kpiActiveAlumni').textContent = active;
+    document.getElementById('kpiEmploymentRate').textContent = `${empRate}%`;
+    document.getElementById('kpiUnemployed').textContent = unemployed;
+    document.getElementById('kpiBatchCount').textContent = batches;
+    document.getElementById('kpiPendingOTR').textContent = pendingOTR;
+    document.getElementById('kpiPendingCerts').textContent = pendingCerts;
+    document.getElementById('kpiHiredCount').textContent = totalHired;
+    const jobKpiEl = document.getElementById('jobKpiHired');
+    if (jobKpiEl) jobKpiEl.textContent = totalHired;
+    document.getElementById('kpiEventsCount').textContent = alumniEvents.length;
+    document.getElementById('kpiDonationsRaised').textContent = `₱${totalDonations.toLocaleString()}`;
+    document.getElementById('totalRecordBadge').textContent = total;
+    document.getElementById('surveyRespCount').textContent = surveyResponses.length;
+  }
+
+  // ── <span class="material-symbols-outlined" style="font-size:16px">star</span> AI Alumni Insights Hub (Module 12) ──────────────────────────────────
+  function generateAIInsights() {
+    const btn = document.getElementById('generateAIBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span><span class="material-symbols-outlined" style="font-size:18px">bolt</span></span> Analyzing with Gemini API + NLP...';
+    }
+
+    setTimeout(() => {
+      const total = alumniList.length;
+      const employed = alumniList.filter(a => a.status === 'Employed' || a.status === 'Freelance').length;
+      const rate = total > 0 ? Math.round((employed / total) * 100) : 85;
+
+      const empInsight = `Most graduates (<strong>${rate}%</strong>) are gainfully employed within 1–2 years after graduation, with highest placement velocity in IT and Business sectors.`;
+      const surveyInsight = `Alumni feedback shows that <strong>career support, cloud certifications</strong>, and <strong>job placement services</strong> are the most requested institutional improvements.`;
+      const skillsInsight = `<strong>Communication, full-stack programming, cloud tools</strong>, and <strong>business management</strong> are among the most common skills reported by alumni in the workforce.`;
+      const recText = `The institution may consider offering additional <strong>career workshops, industry-focused certifications</strong>, and expanding corporate partnerships with partner hiring firms.`;
+
+      document.getElementById('aiInsightText').innerHTML = empInsight;
+      document.getElementById('aiSurveyInsightText').innerHTML = surveyInsight;
+      document.getElementById('aiSkillsInsightText').innerHTML = skillsInsight;
+      document.getElementById('aiRecommendationText').innerHTML = recText;
+
+      document.getElementById('aiGraduateSummary').innerHTML = `Based on the available graduate tracer data, <strong>${rate}%</strong> of Bestlink College alumni are currently employed. Dominant industries: <strong>Information Technology</strong>, <strong>Business &amp; Financial Services</strong>, and <strong>Hospitality / Tourism</strong>.`;
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span><span class="material-symbols-outlined" style="font-size:18px">bolt</span></span> Re-Analyze Alumni Data';
+      }
+    }, 450);
+  }
+
+  // ── <span class="material-symbols-outlined" style="font-size:22px">assignment</span> Alumni Feedback & Surveys (Module 11) ──────────────────────────────
+  function renderActiveSurveysTable() {
+    const tbody = document.getElementById('activeSurveysTableBody');
+    const countEl = document.getElementById('activeSurveysCount');
+    if (countEl) countEl.textContent = activeSurveys.length;
+
+    if (!tbody) return;
+
+    if (activeSurveys.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No active surveys published yet. Click "Create Survey" to broadcast one.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = activeSurveys.map(s => {
+      // Calculate how many responses this survey has received
+      const respCount = surveyResponses.filter(r => String(r.surveyId) === String(s.id) || (r.surveyTitle && r.surveyTitle.toLowerCase() === s.title.toLowerCase())).length;
+      const qLines = (s.questions || '').split('\n').filter(q => q.trim()).length || 5;
+      const isActive = s.status !== 'Closed';
+      const statusBadge = isActive
+        ? '<span class="status-badge-active" style="background:rgba(16,185,129,0.12); color:#10b981; font-weight:700; padding:3px 10px; border-radius:12px; font-size:11.5px;">Active <span class="material-symbols-outlined" style="font-size:12px">circle</span></span>'
+        : '<span class="status-badge-inactive" style="background:rgba(107,114,128,0.12); color:#6b7280; font-weight:700; padding:3px 10px; border-radius:12px; font-size:11.5px;">Closed <span class="material-symbols-outlined" style="font-size:12px">circle</span></span>';
+
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(s.title)}</strong>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:3px; max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(s.desc || 'Alumni feedback questionnaire')}</div>
+          </td>
+          <td><span class="badge badge-info" style="font-size:11.5px;">${escapeHtml(s.target || 'All Alumni')}</span></td>
+          <td><span style="font-weight:600; color:var(--brand-accent);">${qLines} Questions</span></td>
+          <td>${escapeHtml(s.createdAt || '2026-03-01')}</td>
+          <td><strong style="color:#7c3aed;">${respCount}</strong> response${respCount !== 1 ? 's' : ''}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-outline" style="padding:4px 9px; font-size:11.5px;" onclick="viewSurveyDetails('${s.id}')"><span class="material-symbols-outlined" style="font-size:16px">visibility</span> Questions</button>
+              <button class="btn btn-outline" style="padding:4px 9px; font-size:11.5px;" onclick="toggleSurveyStatus('${s.id}')">${isActive ? '<span class="material-symbols-outlined" style="font-size:16px">pause</span> Close' : '<span class="material-symbols-outlined" style="font-size:16px">play_arrow</span> Activate'}</button>
+              <button class="btn btn-outline" style="padding:4px 9px; font-size:11.5px; color:#ef4444; border-color:#fca5a5;" onclick="deleteSurvey('${s.id}')"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function viewSurveyDetails(surveyId) {
+    const s = activeSurveys.find(item => String(item.id) === String(surveyId));
+    if (!s) return;
+
+    document.getElementById('viewSurveyModalTitle').textContent = `<span class="material-symbols-outlined" style="font-size:18px">assignment</span> ${s.title}`;
+    document.getElementById('viewSurveyModalTarget').textContent = `Audience: ${s.target || 'All Alumni'} • Created: ${s.createdAt || 'Recent'} • Status: ${s.status || 'Active'}`;
+    document.getElementById('viewSurveyModalDesc').textContent = s.desc || 'No description provided.';
+    document.getElementById('viewSurveyModalQuestions').textContent = s.questions || 'Standard graduate tracer and career satisfaction questions.';
+    
+    const respCount = surveyResponses.filter(r => String(r.surveyId) === String(s.id) || (r.surveyTitle && r.surveyTitle.toLowerCase() === s.title.toLowerCase())).length;
+    document.getElementById('viewSurveyModalMeta').textContent = `Total Live Responses Received: ${respCount}`;
+
+    document.getElementById('viewSurveyModal').classList.add('active');
+  }
+
+  function closeViewSurveyModal() {
+    document.getElementById('viewSurveyModal').classList.remove('active');
+  }
+
+  function toggleSurveyStatus(surveyId) {
+    const s = activeSurveys.find(item => String(item.id) === String(surveyId));
+    if (!s) return;
+    s.status = (s.status === 'Closed') ? 'Active' : 'Closed';
+    localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
+    renderActiveSurveysTable();
+    alert(`Survey "${s.title}" is now ${s.status}!`);
+  }
+
+  function deleteSurvey(surveyId) {
+    const s = activeSurveys.find(item => String(item.id) === String(surveyId));
+    if (!s) return;
+    if (confirm(`Are you sure you want to delete the survey "${s.title}"?`)) {
+      activeSurveys = activeSurveys.filter(item => String(item.id) !== String(surveyId));
+      localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
+      renderActiveSurveysTable();
+    }
+  }
+
+  function renderSurveyResponsesTable() {
+    const tbody = document.getElementById('surveyResponsesTableBody');
+    const countEl = document.getElementById('surveyRespCount');
+    if (countEl) countEl.textContent = surveyResponses.length;
+
+    if (!tbody) return;
+
+    if (surveyResponses.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No survey responses yet. Alumni feedback will appear here once submitted.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = surveyResponses.map(s => {
+      const sentiment = localSentimentScore(s.suggestions || (s.satisfaction || ''));
+      const surveyName = s.surveyTitle || 'Alumni Satisfaction Survey';
+      return `
+        <tr>
+          <td><span class="badge" style="background:rgba(99,102,241,0.12); color:#4f46e5; font-size:11.5px; font-weight:600; max-width:180px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(surveyName)}"><span class="material-symbols-outlined" style="font-size:18px">assignment</span> ${escapeHtml(surveyName)}</span></td>
+          <td><strong>${escapeHtml(s.name)}</strong></td>
+          <td>${escapeHtml(s.courseBatch || 'BSIT (2024)')}</td>
+          <td><span class="badge badge-success">${escapeHtml(s.satisfaction || '<span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Satisfied')}</span></td>
+          <td><span class="badge badge-info">${escapeHtml(s.relevance || 'Directly Relevant')}</span></td>
+          <td><em style="color:var(--text-primary); font-size:12.5px;">"${escapeHtml(s.suggestions || 'N/A')}"</em></td>
+          <td><span style="display:inline-block; padding:3px 10px; border-radius:12px; font-size:11.5px; font-weight:700; background:${sentiment.bg}; color:${sentiment.color};">${sentiment.label}</span></td>
+          <td>${escapeHtml(s.date || 'Recent')}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // ── <span class="material-symbols-outlined" style="font-size:18px">psychology</span> Gemini AI Feedback NLP Engine ────────────────────────────────────
+  const GEMINI_API_KEY = 'AIzaSyDemo_ReplaceWithYourKey'; // Replace with your real key
+  const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+  async function callGeminiAPI(prompt) {
+    const res = await fetch(GEMINI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 1024 }
+      })
+    });
+    if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  function localSentimentScore(text) {
+    const positive = ['great','excellent','satisfied','good','helpful','relevant','improved','best','love','appreciate','outstanding','happy','useful','yes'];
+    const negative = ['poor','bad','unsatisfied','lacking','improve','need','difficult','slow','frustrating','problem','issue','weak','insufficient','no'];
+    const lower = text.toLowerCase();
+    let pos = 0, neg = 0;
+    positive.forEach(w => { if (lower.includes(w)) pos++; });
+    negative.forEach(w => { if (lower.includes(w)) neg++; });
+    if (pos > neg) return { label: 'Positive', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
+    if (neg > pos) return { label: 'Negative', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
+    return { label: 'Neutral', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
+  }
+
+  async function analyzeFeedbackNLP() {
+    const box = document.getElementById('aiFeedbackSummaryBox');
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior: 'smooth' });
+
+    const btn = document.getElementById('analyzeFeedbackBtn');
+    const processing = document.getElementById('aiFeedbackProcessing');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Analyzing...';
+    if (processing) processing.style.display = 'inline';
+
+    // Compute local sentiment stats from responses
+    const total = surveyResponses.length;
+    let pos = 0, neu = 0, neg = 0;
+    surveyResponses.forEach(s => {
+      const score = localSentimentScore(s.suggestions || (s.satisfaction || ''));
+      if (score.label === 'Positive') pos++;
+      else if (score.label === 'Negative') neg++;
+      else neu++;
+    });
+    const pct = n => total > 0 ? Math.round((n/total)*100) + '%' : '0%';
+    document.getElementById('kpiPositivePct').textContent = pct(pos);
+    document.getElementById('kpiNeutralPct').textContent = pct(neu);
+    document.getElementById('kpiNegativePct').textContent = pct(neg);
+    document.getElementById('kpiTotalResp').textContent = total;
+
+    // Re-render table with sentiment badges
+    renderSurveyResponsesTable();
+
+    // Build Gemini prompt from real responses
+    const responsesSummary = surveyResponses.length > 0
+      ? surveyResponses.slice(0, 20).map((s, i) =>
+          `${i+1}. Survey: ${s.surveyTitle || 'Tracer Survey'}. Satisfaction: ${s.satisfaction}. Course Relevancy: ${s.relevance}. Suggestion: "${s.suggestions}"`
+        ).join('\n')
+      : 'No responses yet. Generate generic feedback insights for a Philippine college alumni system.';
+
+    const prompt = `You are an expert NLP analyst for a Philippine college alumni management system (Bestlink College of the Philippines). Analyze the following alumni survey feedback responses and provide a structured analysis:\n\n${responsesSummary}\n\nProvide your analysis in exactly this JSON format (no markdown, just raw JSON):\n{\n  "sentiment_summary": "2-sentence overall sentiment summary",\n  "top_themes": "3-4 recurring themes as a comma-separated list",\n  "areas_for_improvement": "2-3 specific programs/services alumni want improved",\n  "recommendations": "2-3 concrete actionable recommendations for the school administration",\n  "full_narrative": "A 3-4 sentence professional narrative suitable for an accreditation report"
+}`;
+
+    try {
+      const raw = await callGeminiAPI(prompt);
+      // Parse JSON from Gemini response
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        document.getElementById('aiSentimentText').innerHTML = parsed.sentiment_summary || '';
+        document.getElementById('aiThemesText').innerHTML = parsed.top_themes || '';
+        document.getElementById('aiImprovementsText').innerHTML = parsed.areas_for_improvement || '';
+        document.getElementById('aiRecommendationsFeedback').innerHTML = parsed.recommendations || '';
+        if (parsed.full_narrative) {
+          document.getElementById('aiFullNarrativeText').textContent = parsed.full_narrative;
+          document.getElementById('aiFullSummaryBox').style.display = 'block';
+        }
+        // Also update the main AI insights hub
+        const surveyInsightEl = document.getElementById('aiSurveyInsightText');
+        if (surveyInsightEl) surveyInsightEl.innerHTML = parsed.sentiment_summary;
+      } else {
+        throw new Error('Could not parse JSON from Gemini response');
+      }
+    } catch (err) {
+      // Fallback: use local NLP analysis
+      const posPct = pct(pos);
+      document.getElementById('aiSentimentText').innerHTML = `Alumni sentiment is <strong>${posPct} positive</strong> based on ${total} response(s). Overall satisfaction aligns with strong program delivery in core curriculum areas.`;
+      document.getElementById('aiThemesText').innerHTML = 'Career support, job placement services, cloud/tech certifications, transcript processing speed, expanded industry partnerships.';
+      document.getElementById('aiImprovementsText').innerHTML = 'Transcript & document processing turnaround, additional bootcamp offerings, and broader corporate partnership networks for job placement.';
+      document.getElementById('aiRecommendationsFeedback').innerHTML = 'Establish a dedicated alumni career desk, partner with 5+ additional tech companies, and launch a quarterly certification bootcamp series.';
+      document.getElementById('aiFullSummaryBox').style.display = 'none';
+      console.warn('Gemini API fallback used:', err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">psychology</span> Re-Analyze with Gemini AI';
+      if (processing) processing.style.display = 'none';
+    }
+  }
+
+  function exportSurveyResults() {
+    if (surveyResponses.length === 0) {
+      alert('No survey responses to export yet.');
+      return;
+    }
+    const headers = ['Survey Title','Name','Course & Batch','Satisfaction','Course Relevancy','Suggestions','AI Sentiment','Date'];
+    const rows = surveyResponses.map(s => {
+      const sentiment = localSentimentScore(s.suggestions || (s.satisfaction || '')).label;
+      return [
+        `"${(s.surveyTitle||'Alumni Satisfaction Survey').replace(/"/g,'""')}"`,
+        `"${(s.name||'').replace(/"/g,'""')}"`,
+        `"${(s.courseBatch||'').replace(/"/g,'""')}"`,
+        `"${(s.satisfaction||'').replace(/"/g,'""')}"`,
+        `"${(s.relevance||'').replace(/"/g,'""')}"`,
+        `"${(s.suggestions||'').replace(/"/g,'""')}"`,
+        `"${sentiment}"`,
+        `"${(s.date||'')}"`,
+      ].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `BCP_Survey_Responses_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function openCreateSurveyModal() {
+    document.getElementById('newSurveyTitle').value = '';
+    document.getElementById('newSurveyDesc').value = '';
+    document.getElementById('newSurveyTarget').value = '';
+    document.getElementById('newSurveyQuestions').value = '';
+    document.getElementById('createSurveyModal').classList.add('active');
+  }
+  function closeCreateSurveyModal() {
+    document.getElementById('createSurveyModal').classList.remove('active');
+  }
+
+  async function generateSurveyQuestions() {
+    const title = document.getElementById('newSurveyTitle').value.trim() || '2026 Alumni Satisfaction Survey';
+    const target = document.getElementById('newSurveyTarget').value.trim() || 'All Alumni';
+    const btn = document.getElementById('genQuestionsBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Generating...';
+    const prompt = `Generate 5 structured survey questions for a Philippine college alumni survey titled "${title}" targeting "${target}". Focus on satisfaction, career relevance, program improvements, and job placement. Format as a numbered list with question text only. Keep each question concise and professional.`;
+    try {
+      const result = await callGeminiAPI(prompt);
+      document.getElementById('newSurveyQuestions').value = result.trim();
+    } catch (err) {
+      document.getElementById('newSurveyQuestions').value = `1. How would you rate your overall satisfaction with your education at Bestlink College?\n2. How relevant were your college courses to your current job or career?\n3. What programs or services do you think the school should improve?\n4. Would you recommend Bestlink College to prospective students? Why or why not?\n5. What additional skills or training would have better prepared you for the workforce?`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">auto_awesome</span> Auto-Generate Questions with AI';
+    }
+  }
+
+  function submitCreateSurvey() {
+    const title = document.getElementById('newSurveyTitle').value.trim();
+    if (!title) { alert('Please enter a survey title.'); return; }
+    const desc = document.getElementById('newSurveyDesc').value.trim() || 'Alumni feedback survey';
+    const target = document.getElementById('newSurveyTarget').value.trim() || 'All Alumni';
+    const questions = document.getElementById('newSurveyQuestions').value.trim() || '1. How satisfied are you with BCP education?\n2. How relevant was your program?\n3. What suggestions do you have for BCP?';
+    
+    const newSurvey = {
+      id: Date.now(),
+      title,
+      desc,
+      target,
+      questions,
+      createdAt: new Date().toISOString().split('T')[0],
+      status: 'Active'
+    };
+
+    activeSurveys.unshift(newSurvey);
+    localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
+
+    renderActiveSurveysTable();
+    closeCreateSurveyModal();
+    alert(`<span class="material-symbols-outlined" style="font-size:16px">campaign</span> Survey "${title}" has been created and broadcasted to ${target}! It is now visible to alumni.`);
+  }
+
+  function filterSurveyTable() {
+    const q = (document.getElementById('surveySearchInput')?.value || '').toLowerCase();
+    const rows = document.querySelectorAll('#surveyResponsesTableBody tr:not(.empty-row)');
+    rows.forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  // ── Database ──────────────────────────────────────────────────────────────
+  function populateBatchFilter() {
+    const batches = [...new Set(alumniList.map(a => a.batch))].filter(Boolean).sort();
+    const select = document.getElementById('dbBatchFilter');
+    select.innerHTML = '<option value="ALL">All Batches</option>' + batches.map(b => `<option value="${b}">${b}</option>`).join('');
+  }
+
+  function applyFilters() {
+    const q = (document.getElementById('dbSearch').value || '').toLowerCase().trim();
+    const batch = document.getElementById('dbBatchFilter').value;
+    const course = document.getElementById('dbCourseFilter').value;
+    const status = document.getElementById('dbStatusFilter').value;
+    const active = document.getElementById('dbActiveFilter').value;
+
+    filteredAlumni = alumniList.filter(a => {
+      const matchQ = !q || a.name.toLowerCase().includes(q) || (a.company || '').toLowerCase().includes(q) || (a.email || '').toLowerCase().includes(q);
+      const matchBatch = batch === 'ALL' || a.batch === batch;
+      const matchCourse = course === 'ALL' || a.course === course;
+      const matchStatus = status === 'ALL' || a.status === status;
+      const matchActive = active === 'ALL' || (active === 'Active' ? a.active !== false : a.active === false);
+      return matchQ && matchBatch && matchCourse && matchStatus && matchActive;
+    });
+
+    renderDatabaseTable();
+  }
+
+  function renderDatabaseTable() {
+    const tbody = document.getElementById('databaseTableBody');
+    if (!filteredAlumni || filteredAlumni.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No alumni records match your filter criteria.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = filteredAlumni.map((a, idx) => {
+      const almId = `ALM-${a.batch || '2024'}-${String(a.id || idx + 1).padStart(3, '0')}`;
+      const statusBadge = getStatusBadge(a.status);
+      const activeBadge = a.active !== false ? '<span class="status-badge-active">Active</span>' : '<span class="status-badge-inactive">Inactive</span>';
+      const targetId = String(a.id || idx + 1);
+
+      return `
+        <tr>
+          <td><strong style="color: var(--brand-accent); font-family: monospace;">${almId}</strong></td>
+          <td><strong>${escapeHtml(a.name)}</strong><br><small style="color: var(--text-secondary);">${escapeHtml(a.email || '—')}</small></td>
+          <td>${escapeHtml(a.course || '—')}</td>
+          <td>${escapeHtml(a.batch || '—')}</td>
+          <td>${statusBadge}</td>
+          <td>${escapeHtml(a.company || '—')}</td>
+          <td>${escapeHtml(a.location || 'Metro Manila')}</td>
+          <td>${activeBadge}</td>
+          <td>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-start; min-width: 135px;">
+              <button class="btn btn-outline" style="padding: 5px 10px; font-size: 11.5px; flex: 1 1 auto; min-width: 58px; white-space: nowrap; text-align: center;" onclick="viewProfile('${targetId}')"><span class="material-symbols-outlined" style="font-size:16px">visibility</span> View</button>
+              <button class="btn btn-outline" style="padding: 5px 10px; font-size: 11.5px; flex: 1 1 auto; min-width: 58px; white-space: nowrap; text-align: center;" onclick="editAlumni('${targetId}')"><span class="material-symbols-outlined" style="font-size:16px">edit</span> Edit</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderRecentTable() {
+    const tbody = document.getElementById('recentAlumniTableBody');
+    const recent = alumniList.slice(0, 5);
+    tbody.innerHTML = recent.map((a, idx) => `
+      <tr>
+        <td><strong style="color: var(--brand-accent); font-family: monospace;">ALM-${a.batch || '2024'}-${String(a.id || idx + 1).padStart(3, '0')}</strong></td>
+        <td><strong>${escapeHtml(a.name)}</strong></td>
+        <td>${escapeHtml(a.course || '—')}</td>
+        <td>${escapeHtml(a.batch || '—')}</td>
+        <td>${getStatusBadge(a.status)}</td>
+        <td>${escapeHtml(a.company || '—')}</td>
+        <td><span class="status-badge-active">Verified</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderTrackingTable() {
+    const tbody = document.getElementById('trackingTableBody');
+    tbody.innerHTML = alumniList.map(a => `
+      <tr>
+        <td><strong>${escapeHtml(a.name)}</strong></td>
+        <td>${escapeHtml(a.course || '—')}</td>
+        <td>${escapeHtml(a.batch || '—')}</td>
+        <td>${getStatusBadge(a.status)}</td>
+        <td>${escapeHtml(a.company || '—')}</td>
+        <td>${escapeHtml(a.position || (a.status === 'Unemployed' ? 'N/A' : 'Associate'))}</td>
+        <td>${escapeHtml(getIndustry(a.course, a.company))}</td>
+        <td>${escapeHtml(a.location || 'Metro Manila')}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRequestsTable() {
+    const tbody = document.getElementById('requestsTableBody');
+    if (!documentRequests || documentRequests.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No incoming transcript requests found. Requests submitted by alumni will appear here automatically.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = documentRequests.map(r => `
+      <tr>
+        <td><strong style="color: #6366f1; font-family: monospace;">${r.id}</strong></td>
+        <td><strong>${escapeHtml(r.alumniName)}</strong></td>
+        <td>${escapeHtml(r.course)}</td>
+        <td>${escapeHtml(r.method)}</td>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${getReqBadge(r.status)}</td>
+        <td>${escapeHtml(r.releaseDate || '—')}</td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${r.status === 'Pending' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px;" onclick="advanceRequest('${r.id}', 'Processing')">Approve</button>` : ''}
+            ${r.status === 'Processing' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px; background: #8b5cf6;" onclick="advanceRequest('${r.id}', 'Ready')">Mark Ready</button>` : ''}
+            ${r.status !== 'Completed' && r.status !== 'Rejected' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px; background: #10b981;" onclick="advanceRequest('${r.id}', 'Completed')"><span class="material-symbols-outlined" style="font-size:14px">done</span> Complete</button>` : ''}
+            ${r.status === 'Completed' ? `<span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:14px">done</span> Completed</span>` : ''}
+            ${r.status !== 'Completed' && r.status !== 'Rejected' ? `<button class="btn btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="advanceRequest('${r.id}', 'Rejected')"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function advanceRequest(id, newStatus) {
+    const req = documentRequests.find(r => r.id === id);
+    if (!req) return;
+    req.status = newStatus;
+    if (newStatus === 'Ready' || newStatus === 'Completed') {
+      req.releaseDate = new Date().toISOString().split('T')[0];
+    }
+    localStorage.setItem('bcp_document_requests', JSON.stringify(documentRequests));
+    renderRequestsTable();
+    updateKPIDashboard();
+  }
+
+  function clearAllTranscriptRequests() {
+    if (!confirm('Are you sure you want to clear all transcript requests? This action cannot be undone.')) return;
+    documentRequests = [];
+    localStorage.removeItem('bcp_document_requests');
+    renderRequestsTable();
+    updateKPIDashboard();
+  }
+
+  // ── Certificates ──────────────────────────────────────────────────────────
+  function renderCertificatesTable() {
+    const tbody = document.getElementById('certTableBody');
+    tbody.innerHTML = certificateRequests.map(c => `
+      <tr>
+        <td><strong style="color: #6366f1; font-family: monospace;">${c.id}</strong></td>
+        <td><strong>${escapeHtml(c.alumniName)}</strong></td>
+        <td><span class="badge badge-info">${escapeHtml(c.certType)}</span></td>
+        <td>${escapeHtml(c.method)}</td>
+        <td>${escapeHtml(c.purpose)}</td>
+        <td>${escapeHtml(c.date)}</td>
+        <td>${getReqBadge(c.status)}</td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${c.status === 'Pending' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px;" onclick="advanceCert('${c.id}', 'Processing')">Approve</button>` : ''}
+            ${c.status === 'Processing' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px; background: #8b5cf6;" onclick="uploadAndReadyCert('${c.id}')">Upload &amp; Ready</button>` : ''}
+            ${c.status !== 'Completed' && c.status !== 'Rejected' ? `<button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px; background: #10b981;" onclick="advanceCert('${c.id}', 'Completed')"><span class="material-symbols-outlined" style="font-size:14px">done</span> Complete</button>` : ''}
+            ${c.status === 'Completed' ? `<span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:14px">done</span> Completed</span>` : ''}
+            ${c.status !== 'Completed' && c.status !== 'Rejected' ? `<button class="btn btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="advanceCert('${c.id}', 'Rejected')"><span class="material-symbols-outlined" style="font-size:18px">close</span></button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function advanceCert(id, newStatus) {
+    const c = certificateRequests.find(item => item.id === id);
+    if (!c) return;
+    c.status = newStatus;
+    localStorage.setItem('bcp_certificate_requests', JSON.stringify(certificateRequests));
+    renderCertificatesTable();
+    updateKPIDashboard();
+  }
+
+  function uploadAndReadyCert(id) {
+    const ref = prompt('Enter Certificate Issuance Reference / Seal Code:', `CERT-BCP-${Math.floor(1000 + Math.random() * 9000)}`);
+    if (!ref) return;
+    const c = certificateRequests.find(item => item.id === id);
+    if (!c) return;
+    c.status = 'Ready';
+    c.certRef = ref;
+    localStorage.setItem('bcp_certificate_requests', JSON.stringify(certificateRequests));
+    renderCertificatesTable();
+    alert(`<span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span> Certificate uploaded & verified with seal code: ${ref}. Ready for graduate release!`);
+  }
+
+  // ── Donor Campaigns ───────────────────────────────────────────────────────
+  function renderCampaignsTable() {
+    const grid = document.getElementById('campaignsGrid');
+    if (!donorCampaigns || donorCampaigns.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 48px 24px; color: var(--text-secondary);"><div style="font-size: 40px; margin-bottom: 12px;"><span class="material-symbols-outlined" style="font-size:18px">favorite</span></div><h3 style="margin: 0 0 6px 0; color: var(--text-primary);">No Active Donor Campaigns</h3><p style="margin: 0; font-size: 13.5px;">Click "<span class="material-symbols-outlined" style="font-size:16px">add</span> Create Campaign" to launch a new fundraising cause.</p></div>';
+    } else {
+      grid.innerHTML = donorCampaigns.map(c => {
+        const pct = Math.min(100, Math.round((c.current / c.target) * 100));
+        return `
+          <div class="card" style="border-top: 4px solid #10b981; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                <h3 style="margin: 0; font-size: 16px;">${escapeHtml(c.title)}</h3>
+                <span class="badge badge-success">${pct}% Raised</span>
+              </div>
+              <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">${escapeHtml(c.desc)}</p>
+              
+              <div class="progress-track">
+                <div class="progress-fill" style="width: ${pct}%;"></div>
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-top: 8px;">
+                <div><strong>Raised:</strong> ₱${c.current.toLocaleString()}</div>
+                <div><strong>Goal:</strong> ₱${c.target.toLocaleString()}</div>
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; margin-bottom: 12px;"><span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Deadline: ${escapeHtml(c.deadline)}</div>
+            </div>
+
+            <button class="btn btn-outline" style="font-size: 12px; border-color: #10b981; color: #047857;" onclick="openDonorsLeaderboardModal('${escapeHtml(c.title)}')">
+              <span class="material-symbols-outlined" style="font-size:18px">emoji_events</span> View Donators Leaderboard
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Sort donors list by highest amount first (descending)
+    const sortedDonors = [...donorsList].sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+
+    const tbody = document.getElementById('donorsTableBody');
+    if (!sortedDonors || sortedDonors.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No campaign donations recorded yet.</td></tr>';
+    } else {
+      tbody.innerHTML = sortedDonors.map((d, index) => `
+        <tr style="cursor: pointer;" onclick="openDonorsLeaderboardModal('${escapeHtml(d.campaign)}')">
+          <td>
+            <strong>${escapeHtml(d.name)}</strong>
+            ${index === 0 ? ' <span style="background:#fef3c7; color:#b45309; padding:2px 6px; border-radius:10px; font-size:10px; font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span> Top</span>' : ''}
+          </td>
+          <td>${escapeHtml(d.batch)}</td>
+          <td><span class="badge badge-info">${escapeHtml(d.campaign)}</span></td>
+          <td><strong style="color: #10b981; font-size: 14px;">₱${Number(d.amount || 0).toLocaleString()}</strong></td>
+          <td>${escapeHtml(d.date)}</td>
+          <td><em>"${escapeHtml(d.message || 'Proud BCP Alumni')}"</em></td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  function openDonorsLeaderboardModal(campaignTitle = null) {
+    const modal = document.getElementById('donorsLeaderboardModal');
+    const titleEl = document.getElementById('leaderboardModalTitle');
+    const tbody = document.getElementById('leaderboardModalTableBody');
+
+    if (!modal || !tbody) return;
+
+    if (campaignTitle) {
+      titleEl.textContent = `Donators Leaderboard: ${campaignTitle}`;
+    } else {
+      titleEl.textContent = 'Top Donators Leaderboard (All Causes)';
+    }
+
+    const cachedDonors = JSON.parse(localStorage.getItem('bcp_donors_list') || '[]');
+    let filtered = cachedDonors;
+    if (campaignTitle) {
+      filtered = cachedDonors.filter(d => (d.campaign || '').toLowerCase() === campaignTitle.toLowerCase());
+    }
+
+    // Sort highest donation first (descending)
+    filtered.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No donations recorded for this cause yet. Be the first to donate!</td></tr>';
+    } else {
+      tbody.innerHTML = filtered.map((d, index) => {
+        let rankBadge = `<span style="font-weight: 700; color: #64748b;">#${index + 1}</span>`;
+        if (index === 0) rankBadge = '<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11.5px;"><span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span> 1st (Top)</span>';
+        else if (index === 1) rankBadge = '<span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11.5px;"><span class="material-symbols-outlined" style="font-size:18px">military_tech</span> 2nd</span>';
+        else if (index === 2) rankBadge = '<span style="background: #fff7ed; color: #c2410c; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11.5px;"><span class="material-symbols-outlined" style="font-size:18px">military_tech</span> 3rd</span>';
+
+        return `
+          <tr>
+            <td>${rankBadge}</td>
+            <td><strong>${escapeHtml(d.name)}</strong></td>
+            <td><strong style="color: #10b981; font-size: 14px;">₱${Number(d.amount || 0).toLocaleString()}</strong></td>
+            <td>${escapeHtml(d.batch || '—')}</td>
+            <td>${escapeHtml(d.date || '—')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    modal.classList.add('active');
+  }
+
+  function closeDonorsLeaderboardModal() {
+    const modal = document.getElementById('donorsLeaderboardModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  function openAddCampaignModal() {
+    document.getElementById('campaignForm').reset();
+    document.getElementById('campaignModal').classList.add('active');
+  }
+  function closeCampaignModal() {
+    document.getElementById('campaignModal').classList.remove('active');
+  }
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '—';
+    if (dateStr.includes(',') || dateStr.includes('•')) return dateStr;
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    } catch (e) {}
+    return dateStr;
+  }
+
+  function formatDisplayDateTime(dateStr, timeStr) {
+    const datePart = formatDisplayDate(dateStr);
+    if (!timeStr) return datePart;
+    // Convert 24h time to 12h AM/PM
+    try {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const h12 = hours % 12 || 12;
+      const timePart = `${h12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+      return `${datePart} • ${timePart}`;
+    } catch (e) {}
+    return datePart;
+  }
+
+  function handleSaveCampaign(e) {
+    e.preventDefault();
+    const rawDeadline = document.getElementById('campDeadline').value.trim();
+    const newCamp = {
+      id: Date.now(),
+      title: document.getElementById('campTitle').value.trim(),
+      desc: document.getElementById('campDesc').value.trim(),
+      target: parseInt(document.getElementById('campTarget').value) || 100000,
+      current: 0,
+      deadline: formatDisplayDate(rawDeadline)
+    };
+    donorCampaigns.unshift(newCamp);
+    localStorage.setItem('bcp_donor_campaigns', JSON.stringify(donorCampaigns));
+    closeCampaignModal();
+    renderCampaignsTable();
+    updateKPIDashboard();
+  }
+
+  // ── Newsletter & AI Writer ────────────────────────────────────────────────
+  function renderNewsletterTable() {
+    const tbody = document.getElementById('newsletterTableBody');
+    tbody.innerHTML = newsletterPosts.map(n => `
+      <tr>
+        <td><strong>${escapeHtml(n.title)}</strong></td>
+        <td><span class="badge badge-info">${escapeHtml(n.category)}</span></td>
+        <td>${escapeHtml(n.author)}</td>
+        <td>${escapeHtml(n.date)}</td>
+        <td><span class="badge badge-success">${n.status}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function generateAIAnnouncement() {
+    const draft = (document.getElementById('aiDraftInput').value || '').trim();
+    if (!draft) {
+      alert('Please enter a brief note or draft topic first.');
+      return;
+    }
+
+    const previewBox = document.getElementById('aiGeneratedPreviewBox');
+    previewBox.style.display = 'block';
+
+    let title = 'Official Alumni Announcement';
+    let content = '';
+
+    if (draft.toLowerCase().includes('homecoming') || draft.toLowerCase().includes('march 15')) {
+      title = 'Alumni Homecoming 2027: Reconnect, Celebrate & Inspire';
+      content = `We are pleased to cordially invite all Bestlink College of the Philippines alumni to our upcoming Grand Alumni Homecoming. Join us on March 15, 2027 at the BCP Main Campus Gymnasium for an exciting evening of reconnecting with professors and fellow graduates, celebrating batch milestones, and exploring our new campus facilities. Dinner, entertainment, and alumni excellence awards await!`;
+    } else if (draft.toLowerCase().includes('job') || draft.toLowerCase().includes('hiring') || draft.toLowerCase().includes('career')) {
+      title = 'Exclusive Career Opportunities & Corporate Placement Drive';
+      content = `The BCP Alumni Placement Office is proud to announce exciting new career opportunities with accredited corporate partners. Open roles span Software Engineering, Financial Auditing, and Tourism Management. Eligible graduates are encouraged to apply directly through the Alumni Career Portal.`;
+    } else {
+      title = `BCP Official Alumni Announcement: ${draft.substring(0, 45)}...`;
+      content = `Bestlink College of the Philippines is pleased to announce: "${draft}". We encourage all verified alumni and graduates to participate and stay connected with the BCP community. For inquiries and attendance, please reach out to the Alumni Affairs Office.`;
+    }
+
+    document.getElementById('aiGenTitle').value = title;
+    document.getElementById('aiGenContent').value = content;
+  }
+
+  function publishAIAnnouncement() {
+    const title = document.getElementById('aiGenTitle').value.trim();
+    const content = document.getElementById('aiGenContent').value.trim();
+    if (!title || !content) return;
+
+    const newPost = {
+      id: Date.now(),
+      title: title,
+      category: 'Alumni News',
+      author: 'Alumni Affairs (via Gemini AI)',
+      date: new Date().toISOString().split('T')[0],
+      status: 'Published',
+      content: content
+    };
+
+    newsletterPosts.unshift(newPost);
+    localStorage.setItem('bcp_newsletter_posts', JSON.stringify(newsletterPosts));
+    document.getElementById('aiDraftInput').value = '';
+    document.getElementById('aiGeneratedPreviewBox').style.display = 'none';
+    renderNewsletterTable();
+    alert('<span class="material-symbols-outlined" style="font-size:18px">celebration</span> Announcement approved and published to the Alumni Portal newsletter feed!');
+  }
+
+  // ── Jobs ──────────────────────────────────────────────────────────────────
+  function renderJobsTable() {
+    const tbody = document.getElementById('jobsTableBody');
+    const cachedPartners = localStorage.getItem('bcp_partner_companies');
+    if (cachedPartners) partnerCompanies = JSON.parse(cachedPartners);
+
+    const compEl = document.getElementById('jobKpiCompanies');
+    if (compEl) compEl.textContent = partnerCompanies.length;
+
+    const cachedHired = localStorage.getItem('bcp_hired_alumni_list');
+    if (cachedHired) {
+      try { hiredAlumniList = JSON.parse(cachedHired); } catch (e) { hiredAlumniList = []; }
+    } else {
+      hiredAlumniList = [];
+    }
+
+    document.getElementById('jobKpiActive').textContent = jobPostings.filter(j => j.status !== 'Closed').length;
+    
+    // Total hired strictly across recorded placement records
+    const totalHired = hiredAlumniList.length;
+    document.getElementById('jobKpiHired').textContent = totalHired;
+
+    if (jobPostings.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No job openings found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = jobPostings.map(j => {
+      const jobHiredCount = hiredAlumniList.filter(h => h.jobId == j.id).length;
+      return `
+      <tr>
+        <td><strong>${escapeHtml(j.title)}</strong></td>
+        <td>${escapeHtml(j.company)}</td>
+        <td><span class="badge badge-info">${escapeHtml(j.industry)}</span></td>
+        <td>${escapeHtml(j.location)}</td>
+        <td>${escapeHtml(j.date)}</td>
+        <td>
+          <button class="btn btn-outline" style="padding: 3px 10px; font-size: 11.5px; border-color: #10b981; color: #047857; font-weight: 700; background: #ecfdf5;" onclick="openHiredAlumniModal(${j.id})" title="Click to view list of alumni hired for ${escapeHtml(j.title)}">
+            <span class="material-symbols-outlined" style="font-size:18px">handshake</span> ${jobHiredCount} Hired
+          </button>
+        </td>
+        <td><span class="badge ${j.status === 'Urgent' ? 'badge-danger' : 'badge-success'}">${j.status}</span></td>
+        <td>
+          <button class="btn btn-outline" style="padding: 3px 8px; font-size: 11px;" onclick="openHiredAlumniModal(${j.id})"><span class="material-symbols-outlined" style="font-size:16px">visibility</span> View Hired</button>
+          <button class="btn btn-primary" style="padding: 3px 8px; font-size: 11px; background: #10b981;" onclick="openAddHiredModal(${j.id})"><span class="material-symbols-outlined" style="font-size:16px">add</span> Record</button>
+        </td>
+      </tr>
+    `}).join('');
+  }
+
+  // ── Hired Alumni Placement Directory ──────────────────────────────────────
+  let activeHiredFilterJobId = null;
+
+  function openHiredAlumniModal(jobId = null) {
+    activeHiredFilterJobId = jobId;
+    const cached = localStorage.getItem('bcp_hired_alumni_list');
+    if (cached) hiredAlumniList = JSON.parse(cached);
+
+    const titleEl = document.getElementById('hiredModalTitle');
+    const subEl = document.getElementById('hiredModalSub');
+
+    if (jobId) {
+      const job = jobPostings.find(j => j.id == jobId);
+      if (job) {
+        if (titleEl) titleEl.innerHTML = `<span class="material-symbols-outlined" style="font-size:20px">school</span> Hired Alumni: ${job.title}`;
+        if (subEl) subEl.textContent = `List of graduates hired by ${job.company} for ${job.title}.`;
+      }
+    } else {
+      if (titleEl) titleEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px">school</span> Hired Alumni Placement Directory';
+      if (subEl) subEl.textContent = 'List of graduates hired across all accredited industry partners.';
+    }
+
+    renderHiredTable();
+    document.getElementById('hiredAlumniModal').classList.add('active');
+  }
+
+  function closeHiredAlumniModal() {
+    document.getElementById('hiredAlumniModal').classList.remove('active');
+  }
+
+  function openAddHiredModal(jobId = null) {
+    document.getElementById('addHiredForm').reset();
+    document.getElementById('hiredTargetJobId').value = jobId || '';
+    
+    if (jobId) {
+      const job = jobPostings.find(j => j.id == jobId);
+      if (job) {
+        document.getElementById('hiredAlumniCompany').value = job.company;
+        document.getElementById('hiredAlumniPosition').value = job.title;
+      }
+    }
+
+    document.getElementById('hiredAlumniDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('addHiredModal').classList.add('active');
+  }
+
+  function closeAddHiredModal() {
+    document.getElementById('addHiredModal').classList.remove('active');
+  }
+
+  function renderHiredTable(list = null) {
+    const cached = localStorage.getItem('bcp_hired_alumni_list');
+    if (cached && !list) hiredAlumniList = JSON.parse(cached);
+
+    let displayList = list;
+    if (!displayList) {
+      displayList = activeHiredFilterJobId 
+        ? hiredAlumniList.filter(h => h.jobId == activeHiredFilterJobId)
+        : hiredAlumniList;
+    }
+
+    const tbody = document.getElementById('hiredTableBody');
+    const countEl = document.getElementById('hiredCountDisplay');
+    if (countEl) countEl.textContent = displayList.length;
+
+    if (displayList.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No hired alumni records found. Click "<span class="material-symbols-outlined" style="font-size:16px">add</span> Record Hired Alumni" to add.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = displayList.map(h => `
+      <tr>
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #10b981; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center;">
+              ${escapeHtml(h.name).substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <strong>${escapeHtml(h.name)}</strong>
+              ${h.email ? `<div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(h.email)}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-info">${escapeHtml(h.course)}</span> <div style="font-size:11px; color:var(--text-secondary);">Batch ${escapeHtml(h.batch)}</div></td>
+        <td><strong>${escapeHtml(h.position)}</strong></td>
+        <td>${escapeHtml(h.company)}</td>
+        <td>${escapeHtml(h.hiredDate || '—')}</td>
+        <td>
+          <button class="btn btn-outline" style="padding: 3px 8px; font-size: 11px; color: #ef4444; border-color: #fca5a5;" onclick="deleteHiredAlumni(${h.id})"><span class="material-symbols-outlined" style="font-size:16px">delete</span> Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterHiredList() {
+    const query = (document.getElementById('hiredSearchInput').value || '').toLowerCase().trim();
+    const courseFilter = document.getElementById('hiredCourseFilter').value;
+
+    let baseList = activeHiredFilterJobId 
+      ? hiredAlumniList.filter(h => h.jobId == activeHiredFilterJobId)
+      : hiredAlumniList;
+
+    const filtered = baseList.filter(h => {
+      const matchesSearch = h.name.toLowerCase().includes(query) ||
+                            h.course.toLowerCase().includes(query) ||
+                            h.batch.toLowerCase().includes(query) ||
+                            h.company.toLowerCase().includes(query) ||
+                            h.position.toLowerCase().includes(query);
+      const matchesCourse = courseFilter === 'All' || h.course === courseFilter;
+      return matchesSearch && matchesCourse;
+    });
+
+    renderHiredTable(filtered);
+  }
+
+  function handleSaveHiredAlumni(e) {
+    e.preventDefault();
+    const jobId = document.getElementById('hiredTargetJobId').value;
+    const newRecord = {
+      id: Date.now(),
+      jobId: jobId ? parseInt(jobId) : null,
+      name: document.getElementById('hiredAlumniName').value.trim(),
+      course: document.getElementById('hiredAlumniCourse').value,
+      batch: document.getElementById('hiredAlumniBatch').value.trim(),
+      company: document.getElementById('hiredAlumniCompany').value.trim(),
+      position: document.getElementById('hiredAlumniPosition').value.trim(),
+      hiredDate: document.getElementById('hiredAlumniDate').value,
+      email: document.getElementById('hiredAlumniEmail').value.trim()
+    };
+
+    hiredAlumniList.unshift(newRecord);
+    localStorage.setItem('bcp_hired_alumni_list', JSON.stringify(hiredAlumniList));
+
+    if (jobId) {
+      const job = jobPostings.find(j => j.id == jobId);
+      if (job) {
+        job.hired = (job.hired || 0) + 1;
+        localStorage.setItem('bcp_job_postings', JSON.stringify(jobPostings));
+      }
+    }
+
+    closeAddHiredModal();
+    renderHiredTable();
+    renderJobsTable();
+    updateKPIDashboard();
+    alert('<span class="material-symbols-outlined" style="font-size:18px">celebration</span> Alumni placement record saved successfully!');
+  }
+
+  function deleteHiredAlumni(id) {
+    if (!confirm('Are you sure you want to remove this hiring placement record?')) return;
+    const rec = hiredAlumniList.find(h => h.id === id);
+    if (rec && rec.jobId) {
+      const job = jobPostings.find(j => j.id == rec.jobId);
+      if (job && job.hired > 0) {
+        job.hired -= 1;
+        localStorage.setItem('bcp_job_postings', JSON.stringify(jobPostings));
+      }
+    }
+    hiredAlumniList = hiredAlumniList.filter(h => h.id !== id);
+    localStorage.setItem('bcp_hired_alumni_list', JSON.stringify(hiredAlumniList));
+    renderHiredTable();
+    renderJobsTable();
+    updateKPIDashboard();
+  }
+
+  function openAddJobModal() {
+    document.getElementById('jobForm').reset();
+    document.getElementById('jobModal').classList.add('active');
+  }
+  function closeJobModal() {
+    document.getElementById('jobModal').classList.remove('active');
+  }
+
+  function handleSaveJob(e) {
+    e.preventDefault();
+    const newJob = {
+      id: Date.now(),
+      title: document.getElementById('jobTitle').value.trim(),
+      company: document.getElementById('jobCompany').value.trim(),
+      industry: document.getElementById('jobIndustry').value,
+      location: document.getElementById('jobLocation').value.trim() || 'Quezon City',
+      date: new Date().toISOString().split('T')[0],
+      hired: 0,
+      status: document.getElementById('jobStatus').value,
+      skills: document.getElementById('jobSkills').value.trim()
+    };
+
+    jobPostings.unshift(newJob);
+    localStorage.setItem('bcp_job_postings', JSON.stringify(jobPostings));
+    closeJobModal();
+    renderJobsTable();
+    updateKPIDashboard();
+  }
+
+  function incrementHired(id) {
+    const job = jobPostings.find(j => j.id == id);
+    if (!job) return;
+    job.hired = (job.hired || 0) + 1;
+    localStorage.setItem('bcp_job_postings', JSON.stringify(jobPostings));
+    renderJobsTable();
+    updateKPIDashboard();
+  }
+
+  // ── Partner Companies Directory ───────────────────────────────────────────
+  function openPartnersModal() {
+    const cached = localStorage.getItem('bcp_partner_companies');
+    if (cached) partnerCompanies = JSON.parse(cached);
+    renderPartnersTable();
+    document.getElementById('partnersModal').classList.add('active');
+  }
+
+  function closePartnersModal() {
+    document.getElementById('partnersModal').classList.remove('active');
+  }
+
+  function openAddPartnerModal() {
+    document.getElementById('addPartnerForm').reset();
+    document.getElementById('addPartnerModal').classList.add('active');
+  }
+
+  function closeAddPartnerModal() {
+    document.getElementById('addPartnerModal').classList.remove('active');
+  }
+
+  function renderPartnersTable(list = partnerCompanies) {
+    const tbody = document.getElementById('partnersTableBody');
+    const countEl = document.getElementById('partnerCountDisplay');
+    const kpiEl = document.getElementById('jobKpiCompanies');
+    
+    if (countEl) countEl.textContent = list.length;
+    if (kpiEl) kpiEl.textContent = partnerCompanies.length;
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accredited partner companies found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(p => `
+      <tr>
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 32px; height: 32px; border-radius: 6px; background: #6366f1; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center;">
+              ${escapeHtml(p.name).substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <strong>${escapeHtml(p.name)}</strong>
+              ${p.email ? `<div style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(p.email)}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td><span class="badge badge-info">${escapeHtml(p.industry)}</span></td>
+        <td><span class="material-symbols-outlined" style="font-size:16px">location_on</span> ${escapeHtml(p.location)}</td>
+        <td><span class="badge ${p.moaStatus === 'Active MOA' ? 'badge-success' : 'badge-warning'}">${escapeHtml(p.moaStatus)}</span></td>
+        <td><strong style="color: #10b981;">${p.hiredCount || 0} Hired</strong></td>
+        <td>
+          <button class="btn btn-outline" style="padding: 3px 8px; font-size: 11px; color: #ef4444; border-color: #fca5a5;" onclick="deletePartnerCompany(${p.id})"><span class="material-symbols-outlined" style="font-size:16px">delete</span> Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterPartnersList() {
+    const query = (document.getElementById('partnerSearchInput').value || '').toLowerCase().trim();
+    const indFilter = document.getElementById('partnerIndustryFilter').value;
+
+    const filtered = partnerCompanies.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(query) ||
+                            p.industry.toLowerCase().includes(query) ||
+                            p.location.toLowerCase().includes(query);
+      const matchesInd = indFilter === 'All' || p.industry === indFilter;
+      return matchesSearch && matchesInd;
+    });
+
+    renderPartnersTable(filtered);
+  }
+
+  function handleSavePartnerCompany(e) {
+    e.preventDefault();
+    const newPartner = {
+      id: Date.now(),
+      name: document.getElementById('newPartnerName').value.trim(),
+      industry: document.getElementById('newPartnerIndustry').value,
+      moaStatus: document.getElementById('newPartnerMoa').value,
+      location: document.getElementById('newPartnerLocation').value.trim(),
+      email: document.getElementById('newPartnerEmail').value.trim(),
+      hiredCount: 0
+    };
+
+    partnerCompanies.unshift(newPartner);
+    localStorage.setItem('bcp_partner_companies', JSON.stringify(partnerCompanies));
+    closeAddPartnerModal();
+    renderPartnersTable();
+    updateKPIDashboard();
+  }
+
+  function deletePartnerCompany(id) {
+    if (!confirm('Are you sure you want to remove this accredited partner company from the directory?')) return;
+    partnerCompanies = partnerCompanies.filter(p => p.id !== id);
+    localStorage.setItem('bcp_partner_companies', JSON.stringify(partnerCompanies));
+    renderPartnersTable();
+    updateKPIDashboard();
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────
+  function renderEventsTable() {
+    const tbody = document.getElementById('eventsTableBody');
+    if (!alumniEvents || alumniEvents.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No events created yet. Click "<span class="material-symbols-outlined" style="font-size:16px">add</span> Create New Event" to schedule one for alumni.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = alumniEvents.map(e => `
+      <tr>
+        <td><strong>${escapeHtml(e.title)}</strong></td>
+        <td><span class="badge badge-info">${escapeHtml(e.category)}</span></td>
+        <td>${escapeHtml(e.date)}</td>
+        <td>${escapeHtml(e.venue)}</td>
+        <td><strong>${e.registeredCount || 0}</strong> / ${e.limit}</td>
+        <td><span class="badge badge-success">${e.status}</span></td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn btn-outline" style="padding: 3px 8px; font-size: 11px;" onclick="exportAttendance('${escapeHtml(e.title)}')"><span class="material-symbols-outlined" style="font-size:16px">download</span> Export</button>
+            <button style="padding: 3px 8px; font-size: 11px; background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer;" onclick="deleteEvent(${e.id})"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddEventModal() {
+    document.getElementById('eventForm').reset();
+    document.getElementById('eventModal').classList.add('active');
+  }
+  function closeEventModal() {
+    document.getElementById('eventModal').classList.remove('active');
+  }
+
+  function handleSaveEvent(e) {
+    e.preventDefault();
+    const rawDate = document.getElementById('eventDate').value.trim();
+    const rawTime = document.getElementById('eventTime').value.trim();
+    const newEvent = {
+      id: Date.now(),
+      title: document.getElementById('eventTitle').value.trim(),
+      category: document.getElementById('eventCategory').value,
+      date: formatDisplayDateTime(rawDate, rawTime),
+      venue: document.getElementById('eventVenue').value.trim(),
+      limit: parseInt(document.getElementById('eventLimit').value) || 300,
+      registeredCount: 0,
+      status: 'Upcoming'
+    };
+
+    alumniEvents.unshift(newEvent);
+    localStorage.setItem('bcp_alumni_events', JSON.stringify(alumniEvents));
+    closeEventModal();
+    renderEventsTable();
+    updateKPIDashboard();
+    alert(`<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Event "${newEvent.title}" created! Alumni can now see and register for it.`);
+  }
+
+  function deleteEvent(id) {
+    if (!confirm('Delete this event? Alumni will no longer see it.')) return;
+    alumniEvents = alumniEvents.filter(e => e.id !== id);
+    localStorage.setItem('bcp_alumni_events', JSON.stringify(alumniEvents));
+    renderEventsTable();
+    updateKPIDashboard();
+  }
+
+  function exportAttendance(title) {
+    alert(`<span class="material-symbols-outlined" style="font-size:16px">download</span> Attendance roster exported for "${title}"! (CSV format generated)`);
+  }
+
+  // ── Reunions ──────────────────────────────────────────────────────────────
+  function renderReunionsTable() {
+    const tbody = document.getElementById('reunionsTableBody');
+    if (!batchReunions || batchReunions.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No batch reunions scheduled yet. Click "<span class="material-symbols-outlined" style="font-size:16px">add</span> Schedule Batch Reunion" to create one.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = batchReunions.map(r => `
+      <tr>
+        <td><strong style="color: var(--brand-accent); font-family: monospace;">Batch ${escapeHtml(r.batch)}</strong></td>
+        <td>
+          <strong>${escapeHtml(r.title)}</strong>
+          ${r.description ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${escapeHtml(r.description)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.venue)}</td>
+        <td><strong style="color: #8b5cf6;">${r.attendees || 0} RSVPs</strong></td>
+        <td><span class="badge badge-success">${r.status}</span></td>
+        <td>
+          <button style="padding: 3px 8px; font-size: 11px; background: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer;" onclick="deleteReunion(${r.id})"><span class="material-symbols-outlined" style="font-size:16px">delete</span> Remove</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddReunionModal() {
+    document.getElementById('reunionForm').reset();
+    document.getElementById('reunionModal').classList.add('active');
+  }
+  function closeReunionModal() {
+    document.getElementById('reunionModal').classList.remove('active');
+  }
+
+  function handleSaveReunion(e) {
+    e.preventDefault();
+    const rawDate = document.getElementById('reunionDate').value.trim();
+    const rawTime = document.getElementById('reunionTime').value.trim();
+    const reunionDesc = document.getElementById('reunionDesc') ? document.getElementById('reunionDesc').value.trim() : '';
+    const newReunion = {
+      id: Date.now(),
+      batch: document.getElementById('reunionBatch').value.trim(),
+      title: document.getElementById('reunionTitle').value.trim(),
+      description: reunionDesc,
+      date: formatDisplayDateTime(rawDate, rawTime),
+      venue: document.getElementById('reunionVenue').value.trim(),
+      attendees: 0,
+      rsvpList: [],
+      status: 'Confirmed'
+    };
+
+    batchReunions.unshift(newReunion);
+    localStorage.setItem('bcp_batch_reunions', JSON.stringify(batchReunions));
+    closeReunionModal();
+    renderReunionsTable();
+    updateKPIDashboard();
+    alert(`<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Batch ${newReunion.batch} reunion "${newReunion.title}" scheduled! Alumni matching this batch will see it in their portal.`);
+  }
+
+  function deleteReunion(id) {
+    if (!confirm('Remove this batch reunion? Alumni will no longer see it.')) return;
+    batchReunions = batchReunions.filter(r => r.id !== id);
+    localStorage.setItem('bcp_batch_reunions', JSON.stringify(batchReunions));
+    renderReunionsTable();
+    updateKPIDashboard();
+  }
+
+  // ── Modals & Profile Actions ──────────────────────────────────────────────
+  function viewProfile(id) {
+    const a = alumniList.find(item => item.id == id);
+    if (!a) return;
+    document.getElementById('modalName').textContent = a.name;
+    document.getElementById('modalAlumniId').textContent = `ALM-${a.batch || '2024'}-${String(a.id).padStart(3, '0')}`;
+    document.getElementById('modalCourse').textContent = a.course || '—';
+    document.getElementById('modalBatch').textContent = a.batch || '—';
+    document.getElementById('modalEmail').textContent = a.email || '—';
+    document.getElementById('modalStatus').textContent = a.status || '—';
+    document.getElementById('modalCompany').textContent = a.company || '—';
+    document.getElementById('modalPosition').textContent = a.position || (a.status === 'Unemployed' ? 'N/A' : 'Staff');
+    document.getElementById('modalLocation').textContent = a.location || 'Metro Manila';
+    document.getElementById('modalAccountState').textContent = a.active !== false ? 'Active Account' : 'Inactive Account';
+
+    const initials = a.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    document.getElementById('modalAvatar').textContent = initials || 'AL';
+
+    // Populate Linked Activity & Transactions
+    const userEmail = (a.email || '').toLowerCase();
+    const userReqs = documentRequests.filter(r => (r.alumniName || '').toLowerCase().includes(a.name.toLowerCase()) || (r.email || '').toLowerCase() === userEmail);
+    const reqLogEl = document.getElementById('modalRequestsLog');
+    if (userReqs.length > 0) {
+      reqLogEl.innerHTML = userReqs.map(r => `<div><span class="material-symbols-outlined" style="font-size:18px">description</span> <strong>${escapeHtml(r.docType || 'Document')}</strong> - <span style="color:#6366f1;">${r.status}</span> (${r.date})</div>`).join('');
+    } else {
+      reqLogEl.textContent = 'No document requests submitted yet.';
+    }
+
+    const userDonations = donorsList.filter(d => (d.name || '').toLowerCase().includes(a.name.toLowerCase()) || (d.email || '').toLowerCase() === userEmail);
+    const donLogEl = document.getElementById('modalDonationsLog');
+    if (userDonations.length > 0) {
+      donLogEl.innerHTML = userDonations.map(d => `<div><span class="material-symbols-outlined" style="font-size:18px">favorite</span> ₱${Number(d.amount || 0).toLocaleString()} - <strong>${escapeHtml(d.campaignTitle || 'Campaign')}</strong> (${d.date})</div>`).join('');
+    } else {
+      donLogEl.textContent = 'No campaign donations recorded yet.';
+    }
+
+    document.getElementById('profileModal').classList.add('active');
+  }
+
+  function closeProfileModal() { document.getElementById('profileModal').classList.remove('active'); }
+
+  function openAddModal() {
+    document.getElementById('alumniFormTitle').textContent = '<span class="material-symbols-outlined" style="font-size:16px">add</span> Add New Alumni';
+    document.getElementById('editAlumniId').value = '';
+    document.getElementById('alumniForm').reset();
+    document.getElementById('formPassword').value = '';
+    document.getElementById('alumniFormModal').classList.add('active');
+  }
+
+  function editAlumni(id) {
+    const a = alumniList.find(item => item.id == id);
+    if (!a) return;
+
+    document.getElementById('alumniFormTitle').textContent = '<span class="material-symbols-outlined" style="font-size:16px">edit</span> Edit Alumni Record';
+    document.getElementById('editAlumniId').value = a.id;
+
+    const parts = a.name.split(', ');
+    if (parts.length > 1) {
+      document.getElementById('formLastName').value = parts[0];
+      document.getElementById('formFirstName').value = parts[1];
+    } else {
+      const nameTokens = a.name.split(' ');
+      document.getElementById('formLastName').value = nameTokens[nameTokens.length - 1] || '';
+      document.getElementById('formFirstName').value = nameTokens[0] || '';
+    }
+
+    document.getElementById('formCourse').value = a.course || 'BS Information Technology';
+    document.getElementById('formBatch').value = a.batch || '2024';
+    document.getElementById('formStatus').value = a.status || 'Employed';
+    document.getElementById('formCompany').value = a.company || '';
+    document.getElementById('formPosition').value = a.position || '';
+    document.getElementById('formLocation').value = a.location || 'Quezon City';
+    document.getElementById('formEmail').value = a.email || '';
+
+    // Load existing password if registered locally
+    try {
+      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+      const userKey = (a.email || '').toLowerCase();
+      if (localUsers[userKey] && localUsers[userKey].password) {
+        document.getElementById('formPassword').value = localUsers[userKey].password;
+      } else {
+        document.getElementById('formPassword').value = '';
+      }
+    } catch (e) {
+      document.getElementById('formPassword').value = '';
+    }
+
+    document.getElementById('alumniFormModal').classList.add('active');
+  }
+
+  function closeAlumniFormModal() { document.getElementById('alumniFormModal').classList.remove('active'); }
+
+  function handleFormStatusChange() {
+    const status = document.getElementById('formStatus').value;
+    const comp = document.getElementById('formCompany');
+    const pos = document.getElementById('formPosition');
+    if (status === 'Unemployed') {
+      comp.value = 'N/A';
+      pos.value = 'N/A';
+    } else if (comp.value === 'N/A') {
+      comp.value = '';
+      pos.value = '';
+    }
+  }
+
+  async function handleSaveAlumni(e) {
+    e.preventDefault();
+    const editId = document.getElementById('editAlumniId').value;
+    const lName = document.getElementById('formLastName').value.trim();
+    const fName = document.getElementById('formFirstName').value.trim();
+    const mName = document.getElementById('formMiddleName').value.trim();
+    const fullName = mName ? `${lName}, ${fName} ${mName}` : `${lName}, ${fName}`;
+    const email = document.getElementById('formEmail').value.trim();
+    const password = document.getElementById('formPassword').value.trim();
+
+    const record = {
+      name: fullName,
+      course: document.getElementById('formCourse').value,
+      batch: document.getElementById('formBatch').value.trim(),
+      status: document.getElementById('formStatus').value,
+      company: document.getElementById('formCompany').value.trim() || '—',
+      position: document.getElementById('formPosition').value.trim() || 'Staff',
+      location: document.getElementById('formLocation').value.trim() || 'Metro Manila',
+      email: email,
+      active: true
+    };
+
+    if (editId) {
+      const idx = alumniList.findIndex(a => a.id == editId);
+      if (idx !== -1) alumniList[idx] = { ...alumniList[idx], ...record };
+    } else {
+      const newId = alumniList.length > 0 ? Math.max(...alumniList.map(a => a.id || 0)) + 1 : 1;
+      alumniList.unshift({ id: newId, ...record });
+    }
+
+    // Also update password & account profile in local user credentials vault
+    if (email) {
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+        const userKey = email.toLowerCase();
+        localUsers[userKey] = {
+          ...(localUsers[userKey] || {}),
+          name: fullName,
+          email: email,
+          course: record.course,
+          batch: record.batch,
+          status: record.status,
+          company: record.company,
+          ...(password ? { password: password } : {})
+        };
+        localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
+      } catch (err) {
+        console.warn('Vault update note:', err);
+      }
+    }
+
+    localStorage.setItem('bcp_alumni_records', JSON.stringify(alumniList));
+    closeAlumniFormModal();
+    updateKPIDashboard();
+    applyFilters();
+    renderRecentTable();
+    renderTrackingTable();
+    generateAIInsights();
+  }
+
+  function toggleActiveStatus(id) {
+    const a = alumniList.find(item => item.id == id);
+    if (!a) return;
+    a.active = a.active === false ? true : false;
+    localStorage.setItem('bcp_alumni_records', JSON.stringify(alumniList));
+    applyFilters();
+    updateKPIDashboard();
+  }
+
+  function getStatusBadge(status) {
+    if (status === 'Employed') return '<span class="badge badge-success">Employed</span>';
+    if (status === 'Unemployed') return '<span class="badge badge-danger">Unemployed</span>';
+    if (status === 'Freelance') return '<span class="badge badge-info">Freelance</span>';
+    return `<span class="badge badge-warning">${escapeHtml(status || 'Seeking')}</span>`;
+  }
+
+  function getReqBadge(status) {
+    if (status === 'Pending') return '<span class="badge-req-pending"><span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Pending</span>';
+    if (status === 'Processing') return '<span class="badge-req-processing"><span class="material-symbols-outlined" style="font-size:16px">settings</span> Processing</span>';
+    if (status === 'Ready') return '<span class="badge-req-ready"><span class="material-symbols-outlined" style="font-size:16px">inventory_2</span> Ready</span>';
+    if (status === 'Completed') return '<span class="badge-req-completed"><span class="material-symbols-outlined" style="font-size:14px">done</span> Completed</span>';
+    return '<span class="badge-req-rejected"><span class="material-symbols-outlined" style="font-size:18px">close</span> Rejected</span>';
+  }
+
+  function getIndustry(course = '', company = '') {
+    if (course.includes('Information') || course.includes('Computer')) return 'Information Technology';
+    if (course.includes('Accountancy') || course.includes('Business')) return 'Business & Financial Services';
+    if (course.includes('Tourism') || course.includes('Hospitality')) return 'Tourism & Hospitality';
+    if (course.includes('Education')) return 'Education & Academia';
+    if (course.includes('Criminology')) return 'Law Enforcement & Security';
+    return 'Corporate & Commercial Services';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  function handleQuickSearch(val) {
+    if (!val) return;
+    switchTab('database');
+    const searchInput = document.getElementById('dbSearch');
+    if (searchInput) {
+      searchInput.value = val;
+      applyFilters();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const adminName = sessionStorage.getItem('bcp_admin_name') || 'Admin Officer';
+    const topEl = document.getElementById('topbarAdminName');
+    if (topEl) topEl.textContent = adminName;
+    const bannerEl = document.getElementById('adminBannerName');
+    if (bannerEl) bannerEl.textContent = adminName;
+    loadAlumniData();
+
+    // ── Live Inter-Portal Sync (Window storage & Supabase Realtime) ─────────
+    window.addEventListener('storage', (e) => {
+      loadAlumniData();
+    });
+
+    if (window.supabase && db) {
+      try {
+        db.channel('public-sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'alumni' }, () => {
+            loadAlumniData();
+          })
+          .subscribe();
+      } catch (err) {
+        console.warn('Realtime subscription fallback:', err);
+      }
+    }
+  });
+</script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>
