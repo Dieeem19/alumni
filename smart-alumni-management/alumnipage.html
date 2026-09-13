@@ -1149,11 +1149,11 @@
         <div class="form-group">
           <label class="form-label">1. Overall Satisfaction with Bestlink College Education *</label>
           <select class="form-control" id="fbRating" required>
-            <option value="<span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Extremely Satisfied"><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Extremely Satisfied</option>
-            <option value="<span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Satisfied" selected><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Satisfied</option>
-            <option value="<span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Neutral"><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Neutral</option>
-            <option value="<span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Unsatisfied"><span class="material-symbols-outlined" style="font-size:16px">star</span><span class="material-symbols-outlined" style="font-size:16px">star</span> Unsatisfied</option>
-            <option value="<span class="material-symbols-outlined" style="font-size:16px">star</span> Very Unsatisfied"><span class="material-symbols-outlined" style="font-size:16px">star</span> Very Unsatisfied</option>
+            <option value="5 Stars - Extremely Satisfied">5 Stars - Extremely Satisfied</option>
+            <option value="4 Stars - Satisfied" selected>4 Stars - Satisfied</option>
+            <option value="3 Stars - Neutral">3 Stars - Neutral</option>
+            <option value="2 Stars - Unsatisfied">2 Stars - Unsatisfied</option>
+            <option value="1 Star - Very Unsatisfied">1 Star - Very Unsatisfied</option>
           </select>
         </div>
 
@@ -1215,7 +1215,7 @@
         <div class="form-group">
           <label class="form-label">Would you recommend Bestlink College to prospective students?</label>
           <select class="form-control" id="fbRecommend">
-            <option value="Definitely Yes"><span class="material-symbols-outlined" style="font-size:16px">thumb_up</span> Definitely Yes</option>
+            <option value="Definitely Yes">Definitely Yes</option>
             <option value="Probably Yes">Probably Yes</option>
             <option value="Unsure">Unsure</option>
             <option value="Probably No">Probably No</option>
@@ -2943,9 +2943,9 @@
     let p = 0, n = 0;
     pos.forEach(w => { if (lower.includes(w)) p++; });
     neg.forEach(w => { if (lower.includes(w)) n++; });
-    if (p > n) return { label: 'Positive Feedback <span class="material-symbols-outlined" style="font-size:16px">favorite</span>', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
-    if (n > p) return { label: 'Constructive Critique <span class="material-symbols-outlined" style="font-size:16px">lightbulb</span>', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
-    return { label: 'Neutral Feedback <span class="material-symbols-outlined" style="font-size:16px">favorite</span>', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' };
+    if (p > n) return { label: 'Positive Feedback', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
+    if (n > p) return { label: 'Constructive Critique', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
+    return { label: 'Neutral Feedback', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' };
   }
 
   function loadActiveSurveys() {
