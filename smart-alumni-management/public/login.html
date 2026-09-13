@@ -704,13 +704,31 @@
     const btn = document.querySelector('#loginForm button[type="submit"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
 
-    // 1. Admin shortcut
-    if (email.toLowerCase() === 'admin@bestlink.edu.ph' && password === 'admin123') {
-      sessionStorage.setItem('bcp_admin_logged_in', 'true');
-      sessionStorage.setItem('bcp_admin_name', 'Admin Officer');
-      sessionStorage.setItem('bcp_role', 'admin');
-      window.location.href = 'adminpage.html';
-      return;
+    // 1. Admin Authentication with Supabase Auth (with local fallback if not yet in auth.users)
+    if (email.toLowerCase() === 'admin@bestlink.edu.ph') {
+      try {
+        const { data: adminAuth, error: adminErr } = await db.auth.signInWithPassword({ email, password });
+        if (!adminErr && adminAuth?.user) {
+          sessionStorage.setItem('bcp_admin_logged_in', 'true');
+          sessionStorage.setItem('bcp_admin_name', adminAuth.user.user_metadata?.full_name || 'Admin Officer');
+          sessionStorage.setItem('bcp_user_email', email);
+          sessionStorage.setItem('bcp_role', 'admin');
+          window.location.href = 'adminpage.html';
+          return;
+        }
+      } catch (aErr) {
+        console.warn('Admin cloud auth note:', aErr);
+      }
+
+      // Local fallback for admin123
+      if (password === 'admin123') {
+        sessionStorage.setItem('bcp_admin_logged_in', 'true');
+        sessionStorage.setItem('bcp_admin_name', 'Admin Officer');
+        sessionStorage.setItem('bcp_user_email', email);
+        sessionStorage.setItem('bcp_role', 'admin');
+        window.location.href = 'adminpage.html';
+        return;
+      }
     }
 
     // 2. Authoritative Supabase Auth Sign In (works across any device / browser)
@@ -731,7 +749,7 @@
             if (alumniRow.name) alumniName = alumniRow.name;
             if (alumniRow.batch) alumniBatch = alumniRow.batch;
             if (alumniRow.course) alumniCourse = alumniRow.course;
-            if (alumniRow.status) alumniStatus = alumniRow.status;
+            if (alumniRow.employment || alumniRow.status) alumniStatus = alumniRow.employment || alumniRow.status;
             if (alumniRow.company) alumniCompany = alumniRow.company;
           }
         } catch (fErr) {
@@ -816,17 +834,16 @@
       return;
     }
 
+    const userStatus = document.getElementById('regStatus').value;
     const alumniData = {
-      name:    fullName,
-      course:  document.getElementById('regCourse').value,
-      batch:   document.getElementById('regBatch').value.trim(),
-      status:  document.getElementById('regStatus').value,
-      company: document.getElementById('regCompany').value.trim() || '—',
-      email:   email,
-      phone:    '',
-      location: '',
-      position: '',
-      skills:   ''
+      name:        fullName,
+      course:      document.getElementById('regCourse').value,
+      batch:       document.getElementById('regBatch').value.trim(),
+      employment:  userStatus, // Maps to existing 'employment' DB column
+      company:     document.getElementById('regCompany').value.trim() || '—',
+      email:       email,
+      location:    'Metro Manila',
+      position:    userStatus === 'Unemployed' ? 'N/A' : 'Staff / Specialist'
     };
 
     const btn = document.getElementById('completeRegBtn');
@@ -844,7 +861,7 @@
             role: 'alumni',
             course: alumniData.course,
             batch: alumniData.batch,
-            status: alumniData.status,
+            status: userStatus,
             company: alumniData.company
           }
         }
@@ -874,12 +891,12 @@
           name: fullName,
           course: alumniData.course,
           batch: alumniData.batch,
-          status: alumniData.status,
+          status: userStatus,
           company: alumniData.company,
           email: email,
           phone: '',
-          location: '',
-          position: '',
+          location: 'Metro Manila',
+          position: alumniData.position,
           skills: ''
         };
         localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));

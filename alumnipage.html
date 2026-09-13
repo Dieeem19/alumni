@@ -1826,7 +1826,7 @@
       const notifs = [];
 
       // 1. Announcements & Newsletter posts broadcasted from admin
-      const news = JSON.parse(localStorage.getItem('bcp_newsletter_posts') || '[]');
+      const news = (newsletterPosts && newsletterPosts.length > 0) ? newsletterPosts : JSON.parse(localStorage.getItem('bcp_newsletter_posts') || '[]');
       news.forEach(n => {
         notifs.push({
           id: `news_${n.id}`,
@@ -1841,7 +1841,7 @@
       });
 
       // 2. Active Surveys from admin
-      const surveys = JSON.parse(localStorage.getItem('bcp_active_surveys') || '[]');
+      const surveys = (activeSurveys && activeSurveys.length > 0) ? activeSurveys : JSON.parse(localStorage.getItem('bcp_active_surveys') || '[]');
       const allResp = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
       const myName = (currentAlumni.name || '').toLowerCase();
       surveys.filter(s => s.status !== 'Closed').forEach(s => {
@@ -1854,14 +1854,14 @@
             iconBg: 'rgba(124, 58, 237, 0.14)',
             title: `Survey: ${s.title}`,
             desc: s.desc || 'Admin has published a new feedback questionnaire for you.',
-            date: s.createdAt || 'Active Survey',
+            date: s.createdAt || s.created_at_date || 'Active Survey',
             action: () => { switchTab('surveys'); selectAlumniSurvey(s.id); }
           });
         }
       });
 
       // 3. Upcoming Events from admin
-      const events = JSON.parse(localStorage.getItem('bcp_alumni_events') || '[]');
+      const events = (upcomingEvents && upcomingEvents.length > 0) ? upcomingEvents : JSON.parse(localStorage.getItem('bcp_alumni_events') || '[]');
       events.forEach(e => {
         notifs.push({
           id: `event_${e.id}`,
@@ -1876,7 +1876,7 @@
       });
 
       // 4. Batch Reunions
-      const reunions = JSON.parse(localStorage.getItem('bcp_batch_reunions') || '[]');
+      const reunions = (batchReunions && batchReunions.length > 0) ? batchReunions : JSON.parse(localStorage.getItem('bcp_batch_reunions') || '[]');
       reunions.forEach(r => {
         notifs.push({
           id: `reunion_${r.id}`,
@@ -1945,10 +1945,15 @@
       }).join('');
     }
 
-    function handleNotifClick(notifId, idx) {
+    async function handleNotifClick(notifId, idx) {
       if (!readNotifIds.includes(notifId)) {
         readNotifIds.push(notifId);
         localStorage.setItem('bcp_read_notifs', JSON.stringify(readNotifIds));
+        if (db) {
+          try {
+            await db.from('user_read_notifications').upsert({ notif_id: notifId }, { onConflict: 'user_id,notif_id' });
+          } catch(e){}
+        }
       }
       closeNotifDropdown();
       if (window._currentNotifs && window._currentNotifs[idx] && typeof window._currentNotifs[idx].action === 'function') {
@@ -1957,12 +1962,18 @@
       loadNotifications();
     }
 
-    function markAllNotifsRead() {
+    async function markAllNotifsRead() {
       if (window._currentNotifs) {
         window._currentNotifs.forEach(n => {
           if (!readNotifIds.includes(n.id)) readNotifIds.push(n.id);
         });
         localStorage.setItem('bcp_read_notifs', JSON.stringify(readNotifIds));
+        if (db) {
+          try {
+            const rows = readNotifIds.map(id => ({ notif_id: id }));
+            await db.from('user_read_notifications').upsert(rows, { onConflict: 'user_id,notif_id' });
+          } catch(e){}
+        }
         loadNotifications();
       }
     }
@@ -2441,12 +2452,8 @@
       loadActiveSurveys();
       renderDashboard();
 
-      // Trigger authoritative cloud jobs & applications sync
-      loadApplicationsFromCloud().then(() => {
-        renderAlumniJobs();
-        renderMyJobAppsTable();
-        renderDashboard();
-      });
+      // Trigger authoritative cloud sync for all modules
+      loadAllCloudData();
     }
 
     function renderDashboard() {
@@ -2848,24 +2855,18 @@
     async function loadApplicationsFromCloud() {
       if (!db) return;
       try {
-        // 1. Load job postings from Supabase
         const { data: cloudJobs, error: jobsErr } = await db.from('job_postings').select('*').order('id', { ascending: true });
         if (!jobsErr && cloudJobs && cloudJobs.length > 0) {
           jobOpportunities = cloudJobs;
         }
 
-        // 2. Load my applications from Supabase
         const { data: myApps, error: appsErr } = await db.from('job_applications').select('*').order('created_at', { ascending: false });
         if (!appsErr && myApps) {
           myJobApplications = myApps;
-          // Mark matching jobs as applied
           jobOpportunities.forEach(j => {
             j.applied = myJobApplications.some(app => Number(app.job_id) === Number(j.id));
           });
         }
-
-        // 3. One-time idempotent legacy migration from localStorage
-        await migrateLegacyJobApplications();
       } catch (err) {
         console.warn('Cloud job applications sync note:', err);
       }
@@ -2879,7 +2880,6 @@
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith('job_app_') && k.endsWith('_' + myEmail)) {
-          // Format: job_app_{jobId}_{myEmail}
           const parts = k.split('_');
           const jobId = parts[2];
           if (jobId) keysToMigrate.push({ key: k, jobId: Number(jobId) });
@@ -2904,11 +2904,9 @@
             }, { onConflict: 'job_id,user_id' });
 
             if (!upsertErr || upsertErr.code === '23505') {
-              // Successfully synced to cloud or already exists — safe to remove legacy key
               localStorage.removeItem(item.key);
             }
           } catch (mErr) {
-            // Keep localStorage key if network or unexpected failure
             console.warn('Legacy key migration skipped for retry:', item.key, mErr);
           }
         }
@@ -2993,7 +2991,6 @@
       job.applied = true;
       job.applicants_count = (job.applicants_count || 0) + 1;
 
-      // Refresh live applications from cloud
       await loadApplicationsFromCloud();
       renderAlumniJobs();
       renderMyJobAppsTable();
@@ -3001,7 +2998,27 @@
       alert(`Application submitted to ${job.company} for "${job.title}"! Your profile & skill match score (${match.score}%) have been recorded.`);
     }
 
-    // ── <span class="material-symbols-outlined" style="font-size:18px">confirmation_number</span> Events ─────────────────────────────────────────────────────────────
+    // ── Events (Cloud Synced) ────────────────────────────────────────────────
+    async function loadEventsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudEvents, error: evErr } = await db.from('alumni_events').select('*').order('id', { ascending: true });
+        if (!evErr && cloudEvents && cloudEvents.length > 0) {
+          upcomingEvents = cloudEvents;
+        }
+
+        const { data: myRegs, error: regErr } = await db.from('event_registrations').select('*');
+        if (!regErr && myRegs) {
+          upcomingEvents.forEach(ev => {
+            ev.registered = myRegs.some(r => Number(r.event_id) === Number(ev.id));
+          });
+        }
+        localStorage.setItem('bcp_alumni_events', JSON.stringify(upcomingEvents));
+      } catch (err) {
+        console.warn('Events cloud sync note:', err);
+      }
+    }
+
     function renderAlumniEvents() {
       const grid = document.getElementById('alumniEventsGrid');
       if (!upcomingEvents || upcomingEvents.length === 0) {
@@ -3027,7 +3044,7 @@
             <span class="material-symbols-outlined" style="font-size:16px">location_on</span> <strong>${escapeHtml(e.venue)}</strong>
           </div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-            <span class="material-symbols-outlined" style="font-size:18px">group</span> <strong>${e.registeredCount || e.registered ? (e.registeredCount || 1) : 0}</strong> / ${e.limit || '—'} registered
+            <span class="material-symbols-outlined" style="font-size:18px">group</span> <strong>${e.registered_count || e.registeredCount || (e.registered ? 1 : 0)}</strong> / ${e.limit_count || e.limit || '—'} registered
           </div>
         </div>
 
@@ -3038,25 +3055,42 @@
     `).join('');
     }
 
-    function toggleEventReg(id) {
-      const ev = upcomingEvents.find(e => e.id == id);
+    async function toggleEventReg(id) {
+      const ev = upcomingEvents.find(e => Number(e.id) === Number(id));
       if (!ev) return;
       const myEmail = (currentAlumni.email || '').toLowerCase();
-      const regKey = 'event_reg_' + id + '_' + myEmail;
-      const wasRegistered = localStorage.getItem(regKey) === '1';
+      const wasRegistered = ev.registered;
 
-      if (wasRegistered) {
-        localStorage.removeItem(regKey);
-        ev.registered = false;
-        if (ev.registeredCount && ev.registeredCount > 0) ev.registeredCount -= 1;
-      } else {
-        localStorage.setItem(regKey, '1');
-        ev.registered = true;
-        ev.registeredCount = (ev.registeredCount || 0) + 1;
+      if (db) {
+        try {
+          if (wasRegistered) {
+            await db.from('event_registrations').delete().eq('event_id', id);
+          } else {
+            await db.from('event_registrations').insert([{
+              event_id: Number(id),
+              alumni_email: currentAlumni.email,
+              alumni_name: currentAlumni.name
+            }]);
+          }
+        } catch (dbErr) {
+          console.warn('Event registration cloud sync note:', dbErr);
+        }
       }
+
+      ev.registered = !wasRegistered;
+      if (ev.registered) {
+        ev.registered_count = (ev.registered_count || 0) + 1;
+      } else {
+        ev.registered_count = Math.max((ev.registered_count || 1) - 1, 0);
+      }
+      localStorage.setItem('event_reg_' + id + '_' + myEmail, ev.registered ? '1' : '0');
       localStorage.setItem('bcp_alumni_events', JSON.stringify(upcomingEvents));
+
+      await loadEventsFromCloud();
       renderAlumniEvents();
       renderDashboard();
+      loadNotifications();
+
       if (ev.registered) {
         alert('You are officially registered for "' + ev.title + '"! A confirmation pass has been added to your profile.');
       } else {
@@ -3064,8 +3098,26 @@
       }
     }
 
-    // ── <span class="material-symbols-outlined" style="font-size:22px">handshake</span> Batch Reunions ─────────────────────────────────────────────────────
-    let batchReunions = [];
+    // ── Batch Reunions (Cloud Synced) ────────────────────────────────────────
+    async function loadReunionsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudReunions, error: rErr } = await db.from('batch_reunions').select('*').order('id', { ascending: true });
+        if (!rErr && cloudReunions && cloudReunions.length > 0) {
+          batchReunions = cloudReunions;
+        }
+
+        const { data: myRsvps, error: rsvpErr } = await db.from('reunion_rsvps').select('*');
+        if (!rsvpErr && myRsvps) {
+          batchReunions.forEach(r => {
+            r.hasRsvp = myRsvps.some(rsvp => Number(rsvp.reunion_id) === Number(r.id));
+          });
+        }
+        localStorage.setItem('bcp_batch_reunions', JSON.stringify(batchReunions));
+      } catch (err) {
+        console.warn('Reunions cloud sync note:', err);
+      }
+    }
 
     function renderAlumniReunions() {
       const grid = document.getElementById('reunionsGrid');
@@ -3085,9 +3137,8 @@
       const myBatch = currentAlumni.batch || '2024';
 
       grid.innerHTML = batchReunions.map(r => {
-        const isMine = r.batch === myBatch;
-        const rsvpKey = 'rsvp_reunion_' + r.id + '_' + (currentAlumni.email || '').toLowerCase();
-        const hasRsvp = localStorage.getItem(rsvpKey) === '1';
+        const isMine = String(r.batch) === String(myBatch);
+        const hasRsvp = r.hasRsvp || localStorage.getItem('rsvp_reunion_' + r.id + '_' + (currentAlumni.email || '').toLowerCase()) === '1';
         const accentColor = isMine ? '#4338ca' : '#10b981';
 
         return `
@@ -3097,7 +3148,7 @@
               <span class="badge" style="background: ${isMine ? '#eef2ff' : '#ecfdf5'}; color: ${accentColor}; font-weight: 700;">
                 <span class="material-symbols-outlined" style="font-size:18px">school</span> Batch ${escapeHtml(r.batch)}${isMine ? ' (Your Batch)' : ''}
               </span>
-              ${hasRsvp ? '<span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:14px">done</span> RSVP\'d</span>' : `<span class="badge" style="background:#f1f5f9; color:#64748b;">${r.status}</span>`}
+              ${hasRsvp ? '<span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:14px">done</span> RSVP\'d</span>' : `<span class="badge" style="background:#f1f5f9; color:#64748b;">${r.status || 'Upcoming'}</span>`}
             </div>
             <h3 style="margin: 0 0 8px 0; font-size: 17px; color: var(--brand-primary);">${escapeHtml(r.title)}</h3>
             <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
@@ -3110,7 +3161,7 @@
               </div>
             ` : ''}
             <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-              <span class="material-symbols-outlined" style="font-size:18px">group</span> <strong>${r.attendees || 0}</strong> alumni confirmed
+              <span class="material-symbols-outlined" style="font-size:18px">group</span> <strong>${r.attendees_count || r.attendees || 0}</strong> alumni confirmed
             </div>
           </div>
           <button class="btn ${hasRsvp ? 'btn-outline' : 'btn-primary'} btn-block"
@@ -3123,35 +3174,108 @@
       }).join('');
     }
 
-    function rsvpReunion(id) {
-      const r = batchReunions.find(x => x.id === id);
+    async function rsvpReunion(id) {
+      const r = batchReunions.find(x => Number(x.id) === Number(id));
       if (!r) return;
       const myEmail = (currentAlumni.email || '').toLowerCase();
       const rsvpKey = 'rsvp_reunion_' + id + '_' + myEmail;
-      const hasRsvp = localStorage.getItem(rsvpKey) === '1';
+      const wasRsvp = r.hasRsvp || localStorage.getItem(rsvpKey) === '1';
 
-      if (hasRsvp) {
-        localStorage.removeItem(rsvpKey);
-        r.attendees = Math.max(0, (r.attendees || 1) - 1);
-        if (!r.rsvpList) r.rsvpList = [];
-        r.rsvpList = r.rsvpList.filter(e => (e || '').toLowerCase() !== myEmail);
-      } else {
-        localStorage.setItem(rsvpKey, '1');
-        r.attendees = (r.attendees || 0) + 1;
-        if (!r.rsvpList) r.rsvpList = [];
-        if (!r.rsvpList.some(e => (e || '').toLowerCase() === myEmail)) {
-          r.rsvpList.push(currentAlumni.email);
+      if (db) {
+        try {
+          if (wasRsvp) {
+            await db.from('reunion_rsvps').delete().eq('reunion_id', id);
+          } else {
+            await db.from('reunion_rsvps').insert([{
+              reunion_id: Number(id),
+              alumni_email: currentAlumni.email,
+              alumni_name: currentAlumni.name,
+              status: 'Attending'
+            }]);
+          }
+        } catch (dbErr) {
+          console.warn('Reunion RSVP cloud sync note:', dbErr);
         }
       }
+
+      r.hasRsvp = !wasRsvp;
+      if (r.hasRsvp) {
+        localStorage.setItem(rsvpKey, '1');
+        r.attendees_count = (r.attendees_count || 0) + 1;
+      } else {
+        localStorage.removeItem(rsvpKey);
+        r.attendees_count = Math.max((r.attendees_count || 1) - 1, 0);
+      }
       localStorage.setItem('bcp_batch_reunions', JSON.stringify(batchReunions));
+
+      await loadReunionsFromCloud();
       renderAlumniReunions();
+      loadNotifications();
     }
 
-    // ── <span class="material-symbols-outlined" style="font-size:22px">favorite</span> Donor Campaigns ────────────────────────────────────────────────────
+    // ── Campaigns & Giving / Donations (Cloud Synced) ─────────────────────────
+    async function loadCampaignsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudCamps, error: cErr } = await db.from('donor_campaigns').select('*').order('id', { ascending: true });
+        if (!cErr && cloudCamps && cloudCamps.length > 0) {
+          donorCampaigns = cloudCamps.map(c => ({
+            id: c.id,
+            title: c.title,
+            desc: c.description,
+            current: Number(c.current_amount || 0),
+            target: Number(c.target_amount || 100000),
+            deadline: c.deadline,
+            status: c.status
+          }));
+          localStorage.setItem('bcp_donor_campaigns', JSON.stringify(donorCampaigns));
+        }
+      } catch (err) {
+        console.warn('Campaigns cloud sync note:', err);
+      }
+    }
+
+    async function loadMyDonationsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudDonations, error: dErr } = await db.from('donations').select('*').order('created_at', { ascending: false });
+        if (!dErr && cloudDonations) {
+          const uEmail = (currentAlumni.email || '').toLowerCase();
+          const uName = (currentAlumni.name || '').toLowerCase();
+          myDonations = cloudDonations.filter(d =>
+            (d.donor_email && d.donor_email.toLowerCase() === uEmail) ||
+            (d.donor_name && d.donor_name.toLowerCase() === uName)
+          ).map(d => ({
+            campaign: d.campaign_title,
+            amount: Number(d.amount),
+            date: d.donation_date || d.created_at?.split('T')[0] || 'Recent',
+            status: d.status || 'Verified',
+            ref: d.reference_no
+          }));
+
+          const allFormatted = cloudDonations.map(d => ({
+            id: d.id,
+            name: d.donor_name,
+            batch: d.batch || '—',
+            campaign: d.campaign_title,
+            amount: Number(d.amount),
+            date: d.donation_date || d.created_at?.split('T')[0] || 'Recent',
+            message: d.message || 'Proud BCP Alumnus'
+          }));
+          localStorage.setItem('bcp_donors_list', JSON.stringify(allFormatted));
+        }
+      } catch (err) {
+        console.warn('Donations cloud sync note:', err);
+      }
+    }
+
     function renderAlumniCampaigns() {
       const grid = document.getElementById('alumniCampaignsGrid');
+      if (!grid) return;
       grid.innerHTML = donorCampaigns.map(c => {
-        const pct = Math.min(100, Math.round((c.current / c.target) * 100));
+        const current = Number(c.current || c.current_amount || 0);
+        const target = Number(c.target || c.target_amount || 100000);
+        const pct = Math.min(100, Math.round((current / target) * 100));
         return `
         <div class="card" style="border-top: 4px solid #10b981; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
@@ -3159,15 +3283,15 @@
               <h3 style="margin: 0; font-size: 16px;">${escapeHtml(c.title)}</h3>
               <span class="badge badge-success">${pct}%</span>
             </div>
-            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">${escapeHtml(c.desc)}</p>
-            
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">${escapeHtml(c.desc || c.description || '')}</p>
+
             <div class="progress-track">
               <div class="progress-fill" style="width: ${pct}%;"></div>
             </div>
-            
+
             <div style="display: flex; justify-content: space-between; font-size: 12.5px; margin-top: 8px;">
-              <div><strong>Raised:</strong> ₱${c.current.toLocaleString()}</div>
-              <div><strong>Goal:</strong> ₱${c.target.toLocaleString()}</div>
+              <div><strong>Raised:</strong> ₱${current.toLocaleString()}</div>
+              <div><strong>Goal:</strong> ₱${target.toLocaleString()}</div>
             </div>
             <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 6px; margin-bottom: 14px;"><span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Deadline: ${escapeHtml(c.deadline)}</div>
           </div>
@@ -3198,46 +3322,42 @@
       document.getElementById('donateAmount').value = amt;
     }
 
-    function handleDonate(e) {
+    async function handleDonate(e) {
       e.preventDefault();
       const campId = document.getElementById('donateCampId').value;
+      const campTitle = document.getElementById('donateCampTitle').value;
       const amount = parseInt(document.getElementById('donateAmount').value) || 1000;
       const channel = document.getElementById('donateChannel').value;
       const msg = document.getElementById('donateMessage').value.trim();
 
-      const camp = donorCampaigns.find(c => c.id == campId);
-      if (camp) {
-        camp.current = (camp.current || 0) + amount;
-        localStorage.setItem('bcp_donor_campaigns', JSON.stringify(donorCampaigns));
+      const refNum = `DON-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      if (db) {
+        try {
+          const { error: donErr } = await db.from('donations').insert([{
+            campaign_id: Number(campId) || null,
+            campaign_title: campTitle || 'Alumni Giving',
+            donor_name: currentAlumni.name,
+            donor_email: currentAlumni.email,
+            batch: `${currentAlumni.course || 'BSIT'} (${currentAlumni.batch || '2024'})`,
+            amount: amount,
+            payment_channel: channel,
+            reference_no: refNum,
+            message: msg || 'Proud BCP Alumnus',
+            status: 'Verified'
+          }]);
+          if (donErr) console.warn('Donation cloud insert note:', donErr);
+        } catch (dbErr) {
+          console.error('Donation submission error:', dbErr);
+        }
       }
 
-      const refNum = `DON-2025-${Math.floor(1000 + Math.random() * 9000)}`;
-      const myDon = {
-        campaign: camp ? camp.title : 'Alumni Giving',
-        amount: amount,
-        date: new Date().toISOString().split('T')[0],
-        status: 'Verified',
-        ref: refNum
-      };
-      myDonations.unshift(myDon);
-
-      // Save to shared bcp_donors_list so Admin & Donors Leaderboard update live
-      const allDonors = JSON.parse(localStorage.getItem('bcp_donors_list') || '[]');
-      allDonors.unshift({
-        id: Date.now(),
-        name: currentAlumni.name,
-        batch: `${currentAlumni.course || 'BSIT'} (${currentAlumni.batch || '2024'})`,
-        campaign: camp ? camp.title : 'Alumni Giving',
-        amount: amount,
-        date: new Date().toISOString().split('T')[0],
-        message: msg || 'Proud BCP Alumnus'
-      });
-      localStorage.setItem('bcp_donors_list', JSON.stringify(allDonors));
-
       closeDonationModal();
+      await loadCampaignsFromCloud();
+      await loadMyDonationsFromCloud();
       renderAlumniCampaigns();
       renderMyDonations();
-      alert(`<span class="material-symbols-outlined" style="font-size:18px">celebration</span> Thank you for your generous contribution of ₱${amount.toLocaleString()} via ${channel}! Receipt: ${refNum}`);
+      alert(`🎉 Thank you for your generous contribution of ₱${amount.toLocaleString()} via ${channel}! Receipt: ${refNum}`);
     }
 
     function renderMyDonations() {
@@ -3277,7 +3397,6 @@
         filtered = cachedDonors.filter(d => (d.campaign || '').toLowerCase() === campaignTitle.toLowerCase());
       }
 
-      // Sort highest donation first (descending)
       filtered.sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
 
       if (filtered.length === 0) {
@@ -3309,9 +3428,23 @@
       if (modal) modal.classList.remove('active');
     }
 
-    // ── <span class="material-symbols-outlined" style="font-size:18px">newspaper</span> Newsletter ─────────────────────────────────────────────────────────
+    // ── Newsletter (Cloud Synced) ────────────────────────────────────────────
+    async function loadNewsletterFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudNews, error: nErr } = await db.from('newsletter_posts').select('*').order('id', { ascending: false });
+        if (!nErr && cloudNews && cloudNews.length > 0) {
+          newsletterPosts = cloudNews;
+          localStorage.setItem('bcp_newsletter_posts', JSON.stringify(newsletterPosts));
+        }
+      } catch (err) {
+        console.warn('Newsletter cloud sync note:', err);
+      }
+    }
+
     function renderAlumniNewsletter() {
       const feed = document.getElementById('alumniNewsletterFeed');
+      if (!feed) return;
       feed.innerHTML = newsletterPosts.map(n => `
       <div class="card" style="border-left: 4px solid var(--brand-accent);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -3324,22 +3457,28 @@
     `).join('');
     }
 
-    // ── <span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span> Certificates ────────────────────────────────────────────────────────
-    function renderCertificatesTable() {
-      const allCerts = JSON.parse(localStorage.getItem('bcp_certificate_requests') || '[]');
-      const userEmail = (currentAlumni.email || '').toLowerCase();
-      const userName = (currentAlumni.name || '').toLowerCase();
-
-      if (allCerts.length > 0) {
-        const userCerts = allCerts.filter(c =>
-          (c.email && c.email.toLowerCase() === userEmail) ||
-          (c.alumniName && c.alumniName.toLowerCase() === userName)
-        );
-        myCertificates = userCerts.length > 0 ? userCerts : allCerts;
-      } else {
-        myCertificates = [];
+    // ── Certificate Requests (Cloud Synced) ─────────────────────────────────
+    async function loadCertificateRequestsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudCerts, error: cErr } = await db.from('certificate_requests').select('*').order('created_at', { ascending: false });
+        if (!cErr && cloudCerts) {
+          myCertificates = cloudCerts.map(c => ({
+            id: c.tracking_id,
+            certType: c.cert_type,
+            method: c.method,
+            purpose: c.purpose,
+            date: c.request_date,
+            status: c.status
+          }));
+          localStorage.setItem('bcp_certificate_requests', JSON.stringify(cloudCerts));
+        }
+      } catch (err) {
+        console.warn('Certificates cloud sync note:', err);
       }
+    }
 
+    function renderCertificatesTable() {
       const tbody = document.getElementById('alumniCertTableBody');
       if (!tbody) return;
 
@@ -3349,11 +3488,11 @@
       }
       tbody.innerHTML = myCertificates.map(c => `
       <tr>
-        <td><strong style="color: var(--brand-accent); font-family: monospace;">${c.id}</strong></td>
-        <td><strong>${escapeHtml(c.certType)}</strong></td>
+        <td><strong style="color: var(--brand-accent); font-family: monospace;">${escapeHtml(c.id || c.tracking_id)}</strong></td>
+        <td><strong>${escapeHtml(c.certType || c.cert_type)}</strong></td>
         <td>${escapeHtml(c.method)}</td>
         <td>${escapeHtml(c.purpose)}</td>
-        <td>${escapeHtml(c.date)}</td>
+        <td>${escapeHtml(c.date || c.request_date)}</td>
         <td>
           ${getReqBadge(c.status)}
         </td>
@@ -3364,40 +3503,60 @@
     function openCertRequestModal() { document.getElementById('certRequestModal').classList.add('active'); }
     function closeCertRequestModal() { document.getElementById('certRequestModal').classList.remove('active'); }
 
-    function handleCreateCertRequest(e) {
+    async function handleCreateCertRequest(e) {
       e.preventDefault();
-      const newCert = {
-        id: `CERT-2025-${Math.floor(10 + Math.random() * 90)}`,
-        alumniName: currentAlumni.name,
-        email: currentAlumni.email,
-        certType: document.getElementById('certTypeSelect').value,
-        method: document.getElementById('certMethodSelect').value,
-        purpose: document.getElementById('certPurposeInput').value.trim(),
-        date: new Date().toISOString().split('T')[0],
-        status: 'Pending'
-      };
+      const trackingId = `CERT-2026-${Math.floor(100 + Math.random() * 900)}`;
+      const certType = document.getElementById('certTypeSelect').value;
+      const method = document.getElementById('certMethodSelect').value;
+      const purpose = document.getElementById('certPurposeInput').value.trim();
+      const reqDate = new Date().toISOString().split('T')[0];
 
-      const allCerts = JSON.parse(localStorage.getItem('bcp_certificate_requests') || '[]');
-      allCerts.unshift(newCert);
-      localStorage.setItem('bcp_certificate_requests', JSON.stringify(allCerts));
+      if (db) {
+        try {
+          const { error } = await db.from('certificate_requests').insert([{
+            tracking_id: trackingId,
+            alumni_name: currentAlumni.name,
+            alumni_email: currentAlumni.email,
+            cert_type: certType,
+            method: method,
+            purpose: purpose,
+            request_date: reqDate,
+            status: 'Pending'
+          }]);
+          if (error) console.warn('Cert request cloud insert error:', error);
+        } catch (dbErr) {
+          console.error('Cert request cloud sync error:', dbErr);
+        }
+      }
 
       closeCertRequestModal();
+      await loadCertificateRequestsFromCloud();
       renderCertificatesTable();
-      alert('<span class="material-symbols-outlined" style="font-size:18px">workspace_premium</span> Certificate request submitted to the BCP Registrar office!');
+      alert('📜 Certificate request submitted to the BCP Registrar office!');
     }
 
-    // ── Document Requests (OTR) ───────────────────────────────────────────────
+    // ── Document Requests (Transcripts OTR - Cloud Synced) ───────────────────
+    async function loadDocumentRequestsFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudReqs, error: rErr } = await db.from('document_requests').select('*').order('created_at', { ascending: false });
+        if (!rErr && cloudReqs) {
+          myRequests = cloudReqs.map(r => ({
+            id: r.tracking_id,
+            docType: r.doc_type,
+            method: r.method,
+            date: r.request_date,
+            status: r.status,
+            releaseDate: r.release_date
+          }));
+          localStorage.setItem('bcp_document_requests', JSON.stringify(cloudReqs));
+        }
+      } catch (err) {
+        console.warn('Doc requests cloud sync note:', err);
+      }
+    }
+
     function renderRequestsTable() {
-      const allReqs = JSON.parse(localStorage.getItem('bcp_document_requests') || '[]');
-      const userEmail = (currentAlumni.email || '').toLowerCase();
-      const userName = (currentAlumni.name || '').toLowerCase();
-
-      const userReqs = allReqs.filter(r =>
-        (r.email && r.email.toLowerCase() === userEmail) ||
-        (r.alumniName && r.alumniName.toLowerCase() === userName)
-      );
-      myRequests = userReqs;
-
       const tbody = document.getElementById('alumniRequestsTableBody');
       if (!tbody) return;
 
@@ -3417,21 +3576,21 @@
 
       tbody.innerHTML = myRequests.map(r => `
       <tr>
-        <td><strong style="color: var(--brand-accent); font-family: monospace;">${r.id}</strong></td>
-        <td><strong>${escapeHtml(r.docType)}</strong></td>
+        <td><strong style="color: var(--brand-accent); font-family: monospace;">${escapeHtml(r.id || r.tracking_id)}</strong></td>
+        <td><strong>${escapeHtml(r.docType || r.doc_type)}</strong></td>
         <td>${escapeHtml(r.method)}</td>
-        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.date || r.request_date)}</td>
         <td>${getReqBadge(r.status)}</td>
-        <td>${escapeHtml(r.releaseDate || '—')}</td>
+        <td>${escapeHtml(r.releaseDate || r.release_date || '—')}</td>
       </tr>
     `).join('');
 
       const latest = myRequests[0];
       if (latest) {
-        if (document.getElementById('activeReqId')) document.getElementById('activeReqId').textContent = latest.id;
-        if (document.getElementById('activeReqDoc')) document.getElementById('activeReqDoc').textContent = latest.docType;
+        if (document.getElementById('activeReqId')) document.getElementById('activeReqId').textContent = latest.id || latest.tracking_id;
+        if (document.getElementById('activeReqDoc')) document.getElementById('activeReqDoc').textContent = latest.docType || latest.doc_type;
         if (document.getElementById('activeReqMethod')) document.getElementById('activeReqMethod').textContent = latest.method;
-        if (document.getElementById('activeReqDate')) document.getElementById('activeReqDate').textContent = latest.releaseDate || 'In Queue';
+        if (document.getElementById('activeReqDate')) document.getElementById('activeReqDate').textContent = latest.releaseDate || latest.release_date || 'In Queue';
         if (document.getElementById('activeReqBadge')) {
           document.getElementById('activeReqBadge').className = getReqBadgeClass(latest.status);
           document.getElementById('activeReqBadge').textContent = latest.status;
@@ -3468,68 +3627,84 @@
     function openDocRequestModal() { document.getElementById('docRequestModal').classList.add('active'); }
     function closeDocRequestModal() { document.getElementById('docRequestModal').classList.remove('active'); }
 
-    // ── <span class="material-symbols-outlined" style="font-size:22px">assignment</span> Alumni Feedback & Surveys (Module 11) ─────────────────────────
-    const ALUMNI_GEMINI_KEY = 'AIzaSyDemo_ReplaceWithYourKey'; // Replace with your real Gemini API key
-    const ALUMNI_GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${ALUMNI_GEMINI_KEY}`;
+    async function handleCreateRequest(e) {
+      e.preventDefault();
+      const trackingId = `REQ-2026-${String(Math.floor(100 + Math.random() * 900))}`;
+      const method = document.getElementById('reqMethod').value;
+      const reqDate = new Date().toISOString().split('T')[0];
 
-    async function callAlumniGemini(prompt) {
-      const res = await fetch(ALUMNI_GEMINI_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 300 } })
-      });
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (db) {
+        try {
+          const { error } = await db.from('document_requests').insert([{
+            tracking_id: trackingId,
+            alumni_name: currentAlumni.name,
+            alumni_email: currentAlumni.email,
+            course_batch: `${currentAlumni.course} (${currentAlumni.batch})`,
+            doc_type: 'Official Transcript of Records (OTR)',
+            method: method,
+            request_date: reqDate,
+            status: 'Pending',
+            release_date: '3-5 Business Days'
+          }]);
+          if (error) console.warn('Document request cloud insert note:', error);
+        } catch (dbErr) {
+          console.error('Doc request cloud sync error:', dbErr);
+        }
+      }
+
+      closeDocRequestModal();
+      await loadDocumentRequestsFromCloud();
+      renderRequestsTable();
+      renderDashboard();
+      alert('📄 Your Transcript of Records request has been submitted to the BCP Registrar!');
     }
 
-    function detectSentiment(text) {
-      const pos = ['great', 'excellent', 'satisfied', 'good', 'helpful', 'relevant', 'improved', 'best', 'love', 'appreciate', 'outstanding', 'happy', 'useful', 'amazing', 'perfect', 'yes'];
-      const neg = ['poor', 'bad', 'unsatisfied', 'lacking', 'improve', 'need', 'difficult', 'slow', 'frustrating', 'problem', 'issue', 'weak', 'insufficient', 'boring', 'outdated', 'no'];
-      const lower = text.toLowerCase();
-      let p = 0, n = 0;
-      pos.forEach(w => { if (lower.includes(w)) p++; });
-      neg.forEach(w => { if (lower.includes(w)) n++; });
-      if (p > n) return { label: 'Positive Feedback', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
-      if (n > p) return { label: 'Constructive Critique', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
-      return { label: 'Neutral Feedback', color: '#6366f1', bg: 'rgba(99,102,241,0.12)' };
+    // ── Surveys & Feedback (Cloud Synced) ────────────────────────────────────
+    let cloudSurveyResponses = [];
+
+    async function loadSurveysFromCloud() {
+      if (!db) return;
+      try {
+        const { data: cloudSurveys, error: sErr } = await db.from('active_surveys').select('*').order('id', { ascending: true });
+        if (!sErr && cloudSurveys && cloudSurveys.length > 0) {
+          activeSurveys = cloudSurveys.map(s => ({
+            id: s.id,
+            title: s.title,
+            desc: s.description,
+            target: s.target,
+            questions: s.questions,
+            createdAt: s.created_at_date,
+            status: s.status
+          }));
+          localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
+        }
+
+        const { data: myResp, error: rErr } = await db.from('survey_responses').select('*').order('created_at', { ascending: false });
+        if (!rErr && myResp) {
+          cloudSurveyResponses = myResp.map(r => ({
+            id: r.id,
+            surveyId: r.survey_id,
+            surveyTitle: r.survey_title,
+            name: r.alumni_name,
+            courseBatch: r.course_batch,
+            satisfaction: r.satisfaction,
+            relevance: r.relevance,
+            employment: r.employment,
+            timeToEmploy: r.time_to_employ,
+            skillsUsed: r.skills_used,
+            suggestions: r.suggestions,
+            recommend: r.recommend,
+            customAnswers: r.custom_answers,
+            date: r.submitted_date
+          }));
+          localStorage.setItem('bcp_survey_responses', JSON.stringify(cloudSurveyResponses));
+        }
+      } catch (err) {
+        console.warn('Surveys cloud sync note:', err);
+      }
     }
 
     function loadActiveSurveys() {
-      try {
-        const cachedResp = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
-        const cleanedResp = cachedResp.filter(r => r.id !== 'RESP-170990001' && r.id !== 'RESP-170990002' && r.name !== 'Maria Santos' && r.name !== 'Juan Dela Cruz');
-        localStorage.setItem('bcp_survey_responses', JSON.stringify(cleanedResp));
-      } catch(e) {}
-
-      const cached = localStorage.getItem('bcp_active_surveys');
-      if (cached) {
-        try { activeSurveys = JSON.parse(cached); } catch (e) { activeSurveys = []; }
-      }
-      if (!activeSurveys || activeSurveys.length === 0) {
-        activeSurveys = [
-          {
-            id: 1709900000001,
-            title: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
-            desc: "Comprehensive evaluation of curriculum quality, faculty support, and career readiness after graduation.",
-            target: "All Alumni",
-            questions: "1. How would you rate your overall satisfaction with your education at Bestlink College?\n2. How relevant are your college skills to your present job?\n3. What skills from college do you use most in your career?\n4. What services or programs should the school improve?\n5. Would you recommend Bestlink College to prospective students?",
-            createdAt: "2026-03-01",
-            status: "Active"
-          },
-          {
-            id: 1709900000002,
-            title: "Technology & Industry Skills Relevance Survey",
-            desc: "Targeted feedback on cloud computing, software engineering, and digital tools demanded by modern tech employers.",
-            target: "BSIT, BSIS, Computer Engineering",
-            questions: "1. Which programming languages, cloud platforms, or tools do you use in your daily workflow?\n2. Did your course provide sufficient practical hands-on laboratory experience?\n3. What emerging technologies (AI, Cloud, CyberSec) should be integrated into the syllabus?\n4. Are you open to conducting tech seminars or mentoring current students?",
-            createdAt: "2026-03-05",
-            status: "Active"
-          }
-        ];
-        localStorage.setItem('bcp_active_surveys', JSON.stringify(activeSurveys));
-      }
-
       renderAlumniSurveyList();
       loadPreviousResponses();
     }
@@ -3547,7 +3722,7 @@
       }
 
       const myName = (currentAlumni.name || '').toLowerCase();
-      const allResponses = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
+      const allResponses = cloudSurveyResponses.length > 0 ? cloudSurveyResponses : JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
 
       grid.innerHTML = activeSurveys.map(s => {
         const isSelected = selectedSurveyId && String(s.id) === String(selectedSurveyId);
@@ -3591,7 +3766,6 @@
       renderAlumniSurveyList();
       updateActiveSurveyForm();
 
-      // Smooth scroll directly to the questionnaire card and make it visible
       const formCard = document.getElementById('alumniSurveyCard');
       if (formCard) {
         formCard.style.display = 'block';
@@ -3629,9 +3803,8 @@
       if (descEl) descEl.textContent = s.desc || 'Share your feedback to help Bestlink College improve.';
       if (badgeEl) badgeEl.textContent = s.target || 'All Alumni';
 
-      // Check if already completed
       const myName = (currentAlumni.name || '').toLowerCase();
-      const allResponses = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
+      const allResponses = cloudSurveyResponses.length > 0 ? cloudSurveyResponses : JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
       const myResp = allResponses.find(r => (r.name || '').toLowerCase() === myName && (String(r.surveyId) === String(s.id) || (r.surveyTitle && r.surveyTitle.toLowerCase() === s.title.toLowerCase())));
 
       const noticeEl = document.getElementById('surveyAlreadyCompletedNotice');
@@ -3643,7 +3816,6 @@
         if (dateTextEl) dateTextEl.textContent = `You completed this survey on ${myResp.date || 'a previous date'}. You can review or update your submission below.`;
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">refresh</span> Update &amp; Re-Submit Survey Response';
 
-        // Pre-fill previously submitted values
         if (myResp.satisfaction) document.getElementById('fbRating').value = myResp.satisfaction;
         if (myResp.relevance) document.getElementById('fbRelevance').value = myResp.relevance;
         if (myResp.employment) document.getElementById('fbEmployment').value = myResp.employment;
@@ -3658,12 +3830,10 @@
         if (noticeEl) noticeEl.style.display = 'none';
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">forward_to_inbox</span> Submit Survey &amp; Get AI Feedback Response';
 
-        // Reset form fields for fresh answering
         document.getElementById('alumniFeedbackForm').reset();
         document.getElementById('fbSuggestionsCount').textContent = '0 / 500';
       }
 
-      // Render custom questions if broadcasted by admin
       const customContainer = document.getElementById('dynamicCustomQuestionsContainer');
       const customList = document.getElementById('dynamicCustomQuestionsList');
 
@@ -3700,9 +3870,9 @@
       e.preventDefault();
       const btn = document.getElementById('surveySubmitBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Submitting & Generating AI Response...';
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px">hourglass_top</span> Submitting &amp; Generating AI Response...';
 
-      const s = activeSurveys.find(item => String(item.id) === String(selectedSurveyId)) || activeSurveys[0] || { id: Date.now(), title: 'Alumni Feedback Survey' };
+      const s = activeSurveys.find(item => String(item.id) === String(selectedSurveyId)) || activeSurveys[0] || { id: 1, title: 'Alumni Feedback Survey' };
 
       const satisfaction = document.getElementById('fbRating').value;
       const relevance = document.getElementById('fbRelevance').value;
@@ -3712,7 +3882,6 @@
       const suggestions = document.getElementById('fbSuggestions').value.trim();
       const recommend = document.getElementById('fbRecommend').value;
 
-      // Collect dynamic custom answers
       const customAnswers = [];
       document.querySelectorAll('.custom-survey-answer').forEach(input => {
         const q = input.getAttribute('data-question');
@@ -3720,39 +3889,40 @@
         if (val) customAnswers.push({ question: q, answer: val });
       });
 
-      const newResp = {
-        id: `RESP-${Date.now()}`,
-        surveyId: s.id,
-        surveyTitle: s.title,
-        name: currentAlumni.name,
-        courseBatch: `${currentAlumni.course} (${currentAlumni.batch})`,
-        satisfaction,
-        relevance,
-        employment,
-        timeToEmploy,
-        skillsUsed,
-        suggestions,
-        recommend,
-        customAnswers,
-        date: new Date().toISOString().split('T')[0]
-      };
+      const todayStr = new Date().toISOString().split('T')[0];
 
-      const existingSurveys = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
-      // Remove previous response for this same survey if re-submitting
-      const myName = (currentAlumni.name || '').toLowerCase();
-      const filteredSurveys = existingSurveys.filter(item => !((item.name || '').toLowerCase() === myName && (String(item.surveyId) === String(s.id) || (item.surveyTitle && item.surveyTitle.toLowerCase() === s.title.toLowerCase()))));
-      filteredSurveys.unshift(newResp);
-      localStorage.setItem('bcp_survey_responses', JSON.stringify(filteredSurveys));
+      if (db) {
+        try {
+          const { error } = await db.from('survey_responses').upsert({
+            survey_id: Number(s.id) || null,
+            survey_title: s.title,
+            alumni_name: currentAlumni.name,
+            alumni_email: currentAlumni.email,
+            course_batch: `${currentAlumni.course} (${currentAlumni.batch})`,
+            satisfaction,
+            relevance,
+            employment,
+            time_to_employ: timeToEmploy,
+            skills_used: skillsUsed,
+            suggestions,
+            recommend,
+            custom_answers: customAnswers,
+            submitted_date: todayStr
+          }, { onConflict: 'survey_id,user_id' });
+
+          if (error) console.warn('Survey response cloud upsert note:', error);
+        } catch (dbErr) {
+          console.error('Survey response cloud sync error:', dbErr);
+        }
+      }
 
       document.getElementById('alumniFeedbackForm').reset();
       document.getElementById('fbSuggestionsCount').textContent = '0 / 500';
 
-      // Hide survey form after submission
       const formCard = document.getElementById('alumniSurveyCard');
       if (formCard) formCard.style.display = 'none';
       selectedSurveyId = null;
 
-      // Show AI response card immediately
       const card = document.getElementById('aiResponseCard');
       const loading = document.getElementById('aiResponseLoading');
       const responseText = document.getElementById('aiResponseText');
@@ -3763,10 +3933,8 @@
       sentimentBadge.style.display = 'none';
       card.scrollIntoView({ behavior: 'smooth' });
 
-      // Local sentiment
       const sent = detectSentiment(suggestions + ' ' + satisfaction);
 
-      // Call Gemini for personalized response
       const prompt = `You are a warm, professional alumni relations officer at Bestlink College of the Philippines. An alumni named "${currentAlumni.name || 'Alumni'}" just submitted their feedback for "${s.title}" with these details:\n- Satisfaction: ${satisfaction}\n- Course relevance: ${relevance}\n- Employment: ${employment}\n- Time to employment: ${timeToEmploy}\n- Skills used: ${skillsUsed || 'Not specified'}\n- Suggestions: "${suggestions}"\n- Recommends BCP: ${recommend}\n\nWrite a warm, personalized 2-3 sentence acknowledgment message that: (1) thanks them by first name, (2) acknowledges their specific feedback/suggestion, (3) mentions that their input will be reviewed by the Alumni Affairs Office. Keep it professional but warm. Do not use bullet points.`;
 
       try {
@@ -3788,14 +3956,14 @@
         btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px">forward_to_inbox</span> Submit Survey &amp; Get AI Feedback Response';
       }
 
-      // Refresh UI
+      await loadSurveysFromCloud();
       renderAlumniSurveyList();
       loadPreviousResponses();
       renderDashboard();
     }
 
     function loadPreviousResponses() {
-      const all = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
+      const all = cloudSurveyResponses.length > 0 ? cloudSurveyResponses : JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
       const myName = (currentAlumni.name || '').toLowerCase();
       const mine = all.filter(s => (s.name || '').toLowerCase() === myName);
       const section = document.getElementById('previousResponsesSection');
@@ -3821,28 +3989,86 @@
     `).join('');
     }
 
-    function handleCreateRequest(e) {
-      e.preventDefault();
-      const newReqId = `REQ-2025-${String(Math.floor(100 + Math.random() * 900))}`;
-      const newReq = {
-        id: newReqId,
-        alumniName: currentAlumni.name,
-        email: currentAlumni.email,
-        course: `${currentAlumni.course} (${currentAlumni.batch})`,
-        docType: 'Official Transcript of Records (OTR)',
-        method: document.getElementById('reqMethod').value,
-        date: new Date().toISOString().split('T')[0],
-        status: 'Pending',
-        releaseDate: '3-5 Business Days'
-      };
+    // ── Notifications Cloud Sync ─────────────────────────────────────────────
+    async function loadReadNotifsFromCloud() {
+      if (!db) return;
+      try {
+        const { data, error } = await db.from('user_read_notifications').select('notif_id');
+        if (!error && data && data.length > 0) {
+          const ids = data.map(d => d.notif_id);
+          ids.forEach(id => {
+            if (!readNotifIds.includes(id)) readNotifIds.push(id);
+          });
+          localStorage.setItem('bcp_read_notifs', JSON.stringify(readNotifIds));
+        }
+      } catch (err) {
+        console.warn('Read notifs cloud sync note:', err);
+      }
+    }
 
-      const allReqs = JSON.parse(localStorage.getItem('bcp_document_requests') || '[]');
-      allReqs.unshift(newReq);
-      localStorage.setItem('bcp_document_requests', JSON.stringify(allReqs));
+    // ── Global Cloud Loader & Legacy Migration Runner ────────────────────────
+    async function loadAllCloudData() {
+      if (!db) return;
+      try {
+        await Promise.allSettled([
+          loadApplicationsFromCloud(),
+          loadEventsFromCloud(),
+          loadReunionsFromCloud(),
+          loadCampaignsFromCloud(),
+          loadMyDonationsFromCloud(),
+          loadNewsletterFromCloud(),
+          loadSurveysFromCloud(),
+          loadDocumentRequestsFromCloud(),
+          loadCertificateRequestsFromCloud(),
+          loadReadNotifsFromCloud()
+        ]);
 
-      closeDocRequestModal();
-      renderRequestsTable();
-      alert('<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Your Transcript of Records request has been submitted to the BCP Registrar!');
+        renderRequestsTable();
+        renderCertificatesTable();
+        renderAlumniJobs();
+        renderMyJobAppsTable();
+        renderAlumniEvents();
+        renderAlumniReunions();
+        renderAlumniCampaigns();
+        renderAlumniNewsletter();
+        renderMyDonations();
+        renderAlumniSurveyList();
+        loadPreviousResponses();
+        renderDashboard();
+        loadNotifications();
+
+        await migrateAllLegacyDataToCloud();
+      } catch (e) {
+        console.warn('Error in loadAllCloudData:', e);
+      }
+    }
+
+    async function migrateAllLegacyDataToCloud() {
+      if (!db || !currentAlumni.email) return;
+      try {
+        await migrateLegacyJobApplications();
+
+        // Migrate legacy donations
+        const legacyDonors = JSON.parse(localStorage.getItem('bcp_donors_list') || '[]');
+        const uEmail = (currentAlumni.email || '').toLowerCase();
+        for (const ld of legacyDonors) {
+          if (ld.email && ld.email.toLowerCase() === uEmail && ld.amount && ld.ref) {
+            try {
+              await db.from('donations').insert([{
+                campaign_title: ld.campaign || 'Alumni Giving',
+                donor_name: currentAlumni.name,
+                donor_email: currentAlumni.email,
+                batch: ld.batch || `${currentAlumni.course} (${currentAlumni.batch})`,
+                amount: Number(ld.amount),
+                reference_no: ld.ref,
+                message: ld.message || 'Proud BCP Alumnus'
+              }]);
+            } catch(e){}
+          }
+        }
+      } catch (mErr) {
+        console.warn('Legacy data migration note:', mErr);
+      }
     }
 
     function getReqBadge(status) {
@@ -3865,102 +4091,38 @@
       return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     }
 
-    // ── Live sync helper: reload events & campaigns from localStorage ─────────
+    // ── Live sync helper ─────────────────────────────────────────────────────
     function loadDataFromStorage() {
-      const cachedEvents = localStorage.getItem('bcp_alumni_events');
-      if (cachedEvents) {
-        const freshEvents = JSON.parse(cachedEvents);
-        // Preserve alumni's own registration state
-        freshEvents.forEach(fe => {
-          const existing = upcomingEvents.find(e => e.id === fe.id);
-          if (existing && existing.registered) fe.registered = true;
-        });
-        upcomingEvents = freshEvents;
-      }
-      const cachedCamps = localStorage.getItem('bcp_donor_campaigns');
-      if (cachedCamps) {
-        try {
-          let camps = JSON.parse(cachedCamps);
-          camps = camps.filter(c => c.title !== 'Scholarship Fund 2027' && c.title !== 'Alumni Innovation & Robotics Lab' && !(c.title || '').includes('Robotics'));
-          donorCampaigns = camps;
-        } catch (e) { donorCampaigns = []; }
-      }
-      const cachedNews = localStorage.getItem('bcp_newsletter_posts');
-      if (cachedNews) newsletterPosts = JSON.parse(cachedNews);
-      const cachedReunions = localStorage.getItem('bcp_batch_reunions');
-      if (cachedReunions) batchReunions = JSON.parse(cachedReunions);
-      const cachedJobs = localStorage.getItem('bcp_job_postings');
-      const myEmail = (currentAlumni.email || '').toLowerCase();
-      if (cachedJobs) {
-        try {
-          const freshJobs = JSON.parse(cachedJobs);
-          freshJobs.forEach(fj => {
-            const isApplied = localStorage.getItem(`job_app_${fj.id}_${myEmail}`) === '1';
-            if (isApplied) fj.applied = true;
-          });
-          DEFAULT_PARTNER_JOBS.forEach(pj => {
-            if (!freshJobs.some(j => (j.company || '').toLowerCase().trim() === pj.company.toLowerCase().trim())) {
-              const isApplied = localStorage.getItem(`job_app_${pj.id}_${myEmail}`) === '1';
-              freshJobs.push({ ...pj, applied: isApplied });
-            }
-          });
-          jobOpportunities = freshJobs;
-        } catch (e) {
-          jobOpportunities = [...DEFAULT_PARTNER_JOBS];
-        }
-      } else {
-        jobOpportunities = [...DEFAULT_PARTNER_JOBS];
-      }
-      localStorage.setItem('bcp_job_postings', JSON.stringify(jobOpportunities));
-      renderRequestsTable();
-      renderCertificatesTable();
-      renderAlumniJobs();
-      renderMyJobAppsTable();
-      renderAlumniEvents();
-      renderAlumniReunions();
-      renderAlumniCampaigns();
-      renderAlumniNewsletter();
-      renderMyDonations();
-      loadActiveSurveys();
-      renderDashboard();
-      loadNotifications();
-
-      // Refresh applications from cloud
-      loadApplicationsFromCloud().then(() => {
-        renderAlumniJobs();
-        renderMyJobAppsTable();
-        renderDashboard();
-      });
+      loadAllCloudData();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      loadProfile();
-      loadNotifications();
-
-      // ── Live Inter-Portal Sync (Window storage & Supabase Realtime) ─────────
-      window.addEventListener('storage', (e) => {
-        loadDataFromStorage();
-        loadNotifications();
+      loadProfile().then(() => {
+        loadAllCloudData();
       });
 
+      // ── Supabase Realtime Live Inter-Portal Sync ───────────────────────────
       if (window.supabase) {
         try {
           const SUPABASE_URL = 'https://agzctzbsmjbstoiyenrf.supabase.co';
           const SUPABASE_KEY = 'sb_publishable_9mDQ1g-Ue60AXuD5UeipoA_ol5eyCPD';
           const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-          dbClient.channel('public-sync-alumni')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'alumni' }, () => {
-              loadDataFromStorage();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_applications' }, async () => {
-              await loadApplicationsFromCloud();
-              renderAlumniJobs();
-              renderMyJobAppsTable();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_postings' }, async () => {
-              await loadApplicationsFromCloud();
-              renderAlumniJobs();
-            })
+
+          dbClient.channel('public-sync-alumni-all')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'alumni' }, () => { loadProfile(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_applications' }, () => { loadApplicationsFromCloud().then(() => { renderAlumniJobs(); renderMyJobAppsTable(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_postings' }, () => { loadApplicationsFromCloud().then(() => { renderAlumniJobs(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'alumni_events' }, () => { loadEventsFromCloud().then(() => { renderAlumniEvents(); loadNotifications(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'event_registrations' }, () => { loadEventsFromCloud().then(() => { renderAlumniEvents(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'batch_reunions' }, () => { loadReunionsFromCloud().then(() => { renderAlumniReunions(); loadNotifications(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reunion_rsvps' }, () => { loadReunionsFromCloud().then(() => { renderAlumniReunions(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'newsletter_posts' }, () => { loadNewsletterFromCloud().then(() => { renderAlumniNewsletter(); loadNotifications(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'donor_campaigns' }, () => { loadCampaignsFromCloud().then(() => { renderAlumniCampaigns(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => { loadMyDonationsFromCloud().then(() => { renderMyDonations(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'active_surveys' }, () => { loadSurveysFromCloud().then(() => { renderAlumniSurveyList(); loadNotifications(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'survey_responses' }, () => { loadSurveysFromCloud().then(() => { renderAlumniSurveyList(); loadPreviousResponses(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'document_requests' }, () => { loadDocumentRequestsFromCloud().then(() => { renderRequestsTable(); }); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'certificate_requests' }, () => { loadCertificateRequestsFromCloud().then(() => { renderCertificatesTable(); }); })
             .subscribe();
         } catch (err) {
           console.warn('Realtime subscription fallback:', err);
