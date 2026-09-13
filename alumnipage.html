@@ -2110,6 +2110,7 @@
     ];
 
     let jobOpportunities = [...DEFAULT_PARTNER_JOBS];
+    let myJobApplications = [];
     let upcomingEvents = [];
     let isRsvpConfirmed = false;
     let activeSurveys = [];
@@ -2223,7 +2224,7 @@
           email: registeredUser.email || sessionEmail || '',
           batch: registeredUser.batch || sessionBatch || '2024',
           course: registeredUser.course || sessionCourse || 'BS Information Technology',
-          status: registeredUser.status || sessionStatus || 'Employed',
+          status: registeredUser.employment || registeredUser.status || sessionStatus || 'Employed',
           company: (registeredUser.company && registeredUser.company !== '—') ? registeredUser.company : (sessionCompany || '—'),
           position: registeredUser.position || '',
           location: registeredUser.location || '',
@@ -2439,6 +2440,13 @@
       renderMyDonations();
       loadActiveSurveys();
       renderDashboard();
+
+      // Trigger authoritative cloud jobs & applications sync
+      loadApplicationsFromCloud().then(() => {
+        renderAlumniJobs();
+        renderMyJobAppsTable();
+        renderDashboard();
+      });
     }
 
     function renderDashboard() {
@@ -2642,18 +2650,21 @@
       // Authoritative Supabase Cloud Sync
       if (db && currentAlumni.email) {
         try {
-          const { error: dbErr } = await db.from('alumni').upsert({
+          const upsertPayload = {
             email: currentAlumni.email,
             name: currentAlumni.name,
             course: currentAlumni.course,
             batch: currentAlumni.batch,
-            status: currentAlumni.status,
+            employment: currentAlumni.status, // Maps to existing 'employment' DB column
             company: currentAlumni.company,
             position: currentAlumni.position,
-            location: currentAlumni.location,
-            phone: currentAlumni.phone,
-            skills: currentAlumni.skills
-          }, { onConflict: 'email' });
+            location: currentAlumni.location
+          };
+          // Include phone and skills if supported by schema
+          if (currentAlumni.phone) upsertPayload.phone = currentAlumni.phone;
+          if (currentAlumni.skills) upsertPayload.skills = currentAlumni.skills;
+
+          const { error: dbErr } = await db.from('alumni').upsert(upsertPayload, { onConflict: 'email' });
           if (dbErr) console.warn('Supabase alumni update note:', dbErr);
 
           await db.auth.updateUser({
@@ -2833,45 +2844,161 @@
       }).join('');
     }
 
+    // ── Cloud Quick Apply / Job Applications Migration & Sync ───────────────
+    async function loadApplicationsFromCloud() {
+      if (!db) return;
+      try {
+        // 1. Load job postings from Supabase
+        const { data: cloudJobs, error: jobsErr } = await db.from('job_postings').select('*').order('id', { ascending: true });
+        if (!jobsErr && cloudJobs && cloudJobs.length > 0) {
+          jobOpportunities = cloudJobs;
+        }
+
+        // 2. Load my applications from Supabase
+        const { data: myApps, error: appsErr } = await db.from('job_applications').select('*').order('created_at', { ascending: false });
+        if (!appsErr && myApps) {
+          myJobApplications = myApps;
+          // Mark matching jobs as applied
+          jobOpportunities.forEach(j => {
+            j.applied = myJobApplications.some(app => Number(app.job_id) === Number(j.id));
+          });
+        }
+
+        // 3. One-time idempotent legacy migration from localStorage
+        await migrateLegacyJobApplications();
+      } catch (err) {
+        console.warn('Cloud job applications sync note:', err);
+      }
+    }
+
+    async function migrateLegacyJobApplications() {
+      if (!db || !currentAlumni.email) return;
+      const myEmail = currentAlumni.email.toLowerCase();
+      const keysToMigrate = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('job_app_') && k.endsWith('_' + myEmail)) {
+          // Format: job_app_{jobId}_{myEmail}
+          const parts = k.split('_');
+          const jobId = parts[2];
+          if (jobId) keysToMigrate.push({ key: k, jobId: Number(jobId) });
+        }
+      }
+
+      for (const item of keysToMigrate) {
+        const job = jobOpportunities.find(j => Number(j.id) === item.jobId);
+        if (job) {
+          try {
+            const match = calculateSkillMatch(currentAlumni.skills, job.skills);
+            const { error: upsertErr } = await db.from('job_applications').upsert({
+              job_id: item.jobId,
+              job_title: job.title,
+              company: job.company,
+              applicant_name: currentAlumni.name,
+              applicant_email: currentAlumni.email,
+              course: currentAlumni.course,
+              batch: currentAlumni.batch,
+              match_score: match.score,
+              status: 'Application Under Review'
+            }, { onConflict: 'job_id,user_id' });
+
+            if (!upsertErr || upsertErr.code === '23505') {
+              // Successfully synced to cloud or already exists — safe to remove legacy key
+              localStorage.removeItem(item.key);
+            }
+          } catch (mErr) {
+            // Keep localStorage key if network or unexpected failure
+            console.warn('Legacy key migration skipped for retry:', item.key, mErr);
+          }
+        }
+      }
+    }
+
     function renderMyJobAppsTable() {
       const tbody = document.getElementById('myJobAppsTableBody');
-      const appliedJobs = jobOpportunities.filter(j => j.applied);
+      if (!tbody) return;
 
-      if (appliedJobs.length === 0) {
+      if (!myJobApplications || myJobApplications.length === 0) {
         tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No job applications submitted yet.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = appliedJobs.map(job => {
-        const match = calculateSkillMatch(currentAlumni.skills, job.skills);
-        const matchColor = match.score >= 70 ? '#10b981' : (match.score >= 40 ? '#f59e0b' : (match.score > 0 ? '#6366f1' : '#64748b'));
+      const statusColors = {
+        'Application Under Review': { bg: 'rgba(59, 130, 246, 0.12)', text: '#2563eb' },
+        'Shortlisted':              { bg: 'rgba(124, 58, 237, 0.12)', text: '#7c3aed' },
+        'Interview':                { bg: 'rgba(245, 158, 11, 0.12)', text: '#d97706' },
+        'Hired':                    { bg: 'rgba(22, 163, 74, 0.12)',  text: '#16a34a' },
+        'Archived':                 { bg: 'rgba(107, 114, 128, 0.12)',text: '#6b7280' }
+      };
+
+      tbody.innerHTML = myJobApplications.map(app => {
+        const match = app.match_score || 0;
+        const matchColor = match >= 70 ? '#10b981' : (match >= 40 ? '#f59e0b' : '#6366f1');
+        const stStyle = statusColors[app.status] || { bg: '#dcfce7', text: '#15803d' };
+
         return `
         <tr>
-          <td><strong>${escapeHtml(job.title)}</strong></td>
-          <td>${escapeHtml(job.company)}</td>
-          <td><span class="skill-match-pill" style="border: 1px solid ${matchColor}; color: ${matchColor};"><span class="material-symbols-outlined" style="font-size:16px">gps_fixed</span> ${match.score}% Match</span></td>
-          <td>${escapeHtml(job.date)}</td>
-          <td><span class="badge badge-success">Application Under Review</span></td>
+          <td><strong>${escapeHtml(app.job_title)}</strong></td>
+          <td>${escapeHtml(app.company)}</td>
+          <td><span class="skill-match-pill" style="border: 1px solid ${matchColor}; color: ${matchColor};"><span class="material-symbols-outlined" style="font-size:16px">gps_fixed</span> ${match}% Match</span></td>
+          <td>${escapeHtml(app.applied_date || app.date || 'Recent')}</td>
+          <td><span class="badge" style="background:${stStyle.bg}; color:${stStyle.text}; font-weight:700;">${escapeHtml(app.status || 'Application Under Review')}</span></td>
         </tr>
       `;
       }).join('');
     }
 
-    function applyForJob(id) {
-      const job = jobOpportunities.find(j => j.id == id);
+    async function applyForJob(id) {
+      const job = jobOpportunities.find(j => Number(j.id) === Number(id));
       if (!job) return;
-      const appKey = `job_app_${id}_${currentAlumni.email}`;
-      if (localStorage.getItem(appKey) === '1') {
+
+      if (job.applied || myJobApplications.some(app => Number(app.job_id) === Number(id))) {
         alert(`You have already submitted an application for "${job.title}".`);
         return;
       }
-      localStorage.setItem(appKey, '1');
+
+      const match = calculateSkillMatch(currentAlumni.skills, job.skills);
+
+      if (db) {
+        try {
+          const { error } = await db.from('job_applications').insert([{
+            job_id: Number(id),
+            job_title: job.title,
+            company: job.company,
+            applicant_name: currentAlumni.name,
+            applicant_email: currentAlumni.email,
+            course: currentAlumni.course,
+            batch: currentAlumni.batch,
+            match_score: match.score,
+            status: 'Application Under Review'
+          }]);
+
+          if (error) {
+            if (error.code === '23505' || (error.message && error.message.toLowerCase().includes('unique'))) {
+              alert(`You have already submitted an application for "${job.title}".`);
+              job.applied = true;
+              renderAlumniJobs();
+              return;
+            }
+            throw error;
+          }
+        } catch (dbErr) {
+          console.error('Job application submission error:', dbErr);
+          alert('Could not submit application to the cloud. Please check your internet connection.');
+          return;
+        }
+      }
+
       job.applied = true;
-      job.applicants = (job.applicants || 0) + 1;
-      localStorage.setItem('bcp_job_postings', JSON.stringify(jobOpportunities));
+      job.applicants_count = (job.applicants_count || 0) + 1;
+
+      // Refresh live applications from cloud
+      await loadApplicationsFromCloud();
       renderAlumniJobs();
       renderMyJobAppsTable();
-      alert(`<span class="material-symbols-outlined" style="font-size:18px">celebration</span> Application sent to ${job.company} for "${job.title}"! Your BCP Alumni credentials & skill match score have been forwarded.`);
+      renderDashboard();
+      alert(`Application submitted to ${job.company} for "${job.title}"! Your profile & skill match score (${match.score}%) have been recorded.`);
     }
 
     // ── <span class="material-symbols-outlined" style="font-size:18px">confirmation_number</span> Events ─────────────────────────────────────────────────────────────
@@ -3797,6 +3924,13 @@
       loadActiveSurveys();
       renderDashboard();
       loadNotifications();
+
+      // Refresh applications from cloud
+      loadApplicationsFromCloud().then(() => {
+        renderAlumniJobs();
+        renderMyJobAppsTable();
+        renderDashboard();
+      });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -3817,6 +3951,15 @@
           dbClient.channel('public-sync-alumni')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'alumni' }, () => {
               loadDataFromStorage();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_applications' }, async () => {
+              await loadApplicationsFromCloud();
+              renderAlumniJobs();
+              renderMyJobAppsTable();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'job_postings' }, async () => {
+              await loadApplicationsFromCloud();
+              renderAlumniJobs();
             })
             .subscribe();
         } catch (err) {
