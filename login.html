@@ -839,11 +839,13 @@
       name:        fullName,
       course:      document.getElementById('regCourse').value,
       batch:       document.getElementById('regBatch').value.trim(),
-      employment:  userStatus, // Maps to existing 'employment' DB column
+      status:      userStatus,
+      employment:  userStatus,
       company:     document.getElementById('regCompany').value.trim() || '—',
       email:       email,
       location:    'Metro Manila',
-      position:    userStatus === 'Unemployed' ? 'N/A' : 'Staff / Specialist'
+      position:    userStatus === 'Unemployed' ? 'N/A' : 'Staff / Specialist',
+      active:      true
     };
 
     const btn = document.getElementById('completeRegBtn');
@@ -879,12 +881,16 @@
       }
 
       // 2. Insert alumni profile row in Supabase database
-      const { error: dbError } = await db.from('alumni').insert([alumniData]);
-      if (dbError) {
-        console.warn('Alumni database profile insert notice:', dbError.message);
+      try {
+        const { error: dbError } = await db.from('alumni').upsert(alumniData, { onConflict: 'email' });
+        if (dbError) {
+          await db.from('alumni').insert([alumniData]);
+        }
+      } catch (insertErr) {
+        console.warn('Alumni database profile insert notice:', insertErr);
       }
 
-      // 3. Cache non-sensitive profile info (NO plaintext password) for local offline fallback
+      // 3. Cache non-sensitive profile info for local offline fallback
       try {
         const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
         localUsers[email.toLowerCase()] = {
@@ -892,16 +898,40 @@
           course: alumniData.course,
           batch: alumniData.batch,
           status: userStatus,
+          employment: userStatus,
           company: alumniData.company,
           email: email,
           phone: '',
           location: 'Metro Manila',
           position: alumniData.position,
-          skills: ''
+          skills: '',
+          active: true
         };
         localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
+
+        const allAlumni = JSON.parse(localStorage.getItem('bcp_alumni_records') || '[]');
+        const existingIdx = allAlumni.findIndex(a => a.email && a.email.toLowerCase() === email.toLowerCase());
+        const newRec = {
+          id: allAlumni.length > 0 ? Math.max(...allAlumni.map(a => Number(a.id) || 0)) + 1 : 1,
+          name: fullName,
+          course: alumniData.course,
+          batch: alumniData.batch,
+          status: userStatus,
+          employment: userStatus,
+          company: alumniData.company,
+          position: alumniData.position,
+          location: 'Metro Manila',
+          email: email,
+          active: true
+        };
+        if (existingIdx >= 0) {
+          allAlumni[existingIdx] = { ...allAlumni[existingIdx], ...newRec };
+        } else {
+          allAlumni.unshift(newRec);
+        }
+        localStorage.setItem('bcp_alumni_records', JSON.stringify(allAlumni));
       } catch (storageErr) {
-        console.warn('LocalStorage non-sensitive cache note:', storageErr);
+        console.warn('LocalStorage cache note:', storageErr);
       }
 
       showAlert('registerAlert', '<span class="material-symbols-outlined" style="font-size:18px">celebration</span> <strong>Registration Successful!</strong> Your alumni account is created. Switching to Sign In...', true);

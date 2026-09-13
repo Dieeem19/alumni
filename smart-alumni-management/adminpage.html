@@ -1930,32 +1930,85 @@
 
   // ── Data Initialization (Cloud Synced) ──────────────────────────────────
   async function loadAlumniData() {
-    // 1. Alumni Records from Supabase
+    // 1. Alumni Records from Supabase & Local Accounts Sync
     try {
+      let cloudAlumni = [];
       if (db) {
         const { data, error } = await db.from('alumni').select('*');
         if (!error && data && data.length > 0) {
-          alumniList = data.map((item, idx) => ({
+          cloudAlumni = data.map((item, idx) => ({
             id: item.id || idx + 1,
             name: item.name,
             course: item.course || 'BS Information Technology',
             batch: item.batch || '2024',
-            status: item.employment || item.status || 'Employed',
+            status: item.status || item.employment || 'Employed',
             company: item.company || '—',
             position: item.position || (item.employment === 'Unemployed' || item.status === 'Unemployed' ? 'N/A' : 'Staff / Specialist'),
             location: item.location || 'Metro Manila',
             email: item.email || `alumni${idx+1}@bcp.edu.ph`,
             active: item.active !== false
           }));
-          localStorage.setItem('bcp_alumni_records', JSON.stringify(alumniList));
-        } else {
-          const cached = localStorage.getItem('bcp_alumni_records');
-          alumniList = cached ? JSON.parse(cached) : [...SAMPLE_ALUMNI];
+        }
+      }
+
+      // Merge with locally registered users or records to ensure newly created accounts appear immediately
+      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+      const localRecords = JSON.parse(localStorage.getItem('bcp_alumni_records') || '[]');
+      let mergedList = [...cloudAlumni];
+
+      localRecords.forEach(lr => {
+        if (lr.email && !mergedList.some(m => (m.email || '').toLowerCase() === lr.email.toLowerCase())) {
+          mergedList.unshift(lr);
+        } else if (lr.name && !mergedList.some(m => (m.name || '').toLowerCase() === lr.name.toLowerCase())) {
+          mergedList.unshift(lr);
+        }
+      });
+
+      Object.values(localUsers).forEach(u => {
+        if (u.email && !mergedList.some(m => (m.email || '').toLowerCase() === u.email.toLowerCase())) {
+          const newId = mergedList.length > 0 ? Math.max(...mergedList.map(a => Number(a.id) || 0)) + 1 : 1;
+          mergedList.unshift({
+            id: newId,
+            name: u.name || 'Alumni User',
+            course: u.course || 'BS Information Technology',
+            batch: u.batch || '2024',
+            status: u.status || u.employment || 'Employed',
+            company: u.company || '—',
+            position: u.position || (u.status === 'Unemployed' ? 'N/A' : 'Staff / Specialist'),
+            location: u.location || 'Metro Manila',
+            email: u.email,
+            active: true
+          });
+        }
+      });
+
+      alumniList = mergedList;
+      localStorage.setItem('bcp_alumni_records', JSON.stringify(alumniList));
+
+      // Auto-sync missing accounts to Supabase database in background
+      if (db) {
+        for (const alm of alumniList) {
+          if (alm.email && !cloudAlumni.some(c => (c.email || '').toLowerCase() === alm.email.toLowerCase())) {
+            try {
+              await db.from('alumni').upsert({
+                name: alm.name,
+                course: alm.course,
+                batch: alm.batch,
+                status: alm.status,
+                employment: alm.status,
+                company: alm.company,
+                position: alm.position,
+                location: alm.location,
+                email: alm.email,
+                active: alm.active !== false
+              }, { onConflict: 'email' });
+            } catch (err) {}
+          }
         }
       }
     } catch (e) {
       const cached = localStorage.getItem('bcp_alumni_records');
-      alumniList = cached ? JSON.parse(cached) : [...SAMPLE_ALUMNI];
+      alumniList = cached ? JSON.parse(cached) : [];
     }
 
     // 2. Document Requests from Supabase

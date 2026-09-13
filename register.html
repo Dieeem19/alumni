@@ -173,11 +173,13 @@
       name:        fullName,
       course:      document.getElementById('regCourse').value,
       batch:       document.getElementById('regBatch').value.trim(),
-      employment:  userStatus, // Maps to existing 'employment' DB column
+      status:      userStatus,
+      employment:  userStatus,
       company:     document.getElementById('regCompany').value.trim() || '—',
       email:       email,
       location:    'Metro Manila',
-      position:    userStatus === 'Unemployed' ? 'N/A' : 'Staff / Specialist'
+      position:    userStatus === 'Unemployed' ? 'N/A' : 'Staff / Specialist',
+      active:      true
     };
 
     const btn = document.getElementById('registerBtn');
@@ -213,12 +215,16 @@
       }
 
       // 2. Insert alumni profile row in Supabase database
-      const { error: dbError } = await db.from('alumni').insert([alumniData]);
-      if (dbError) {
-        console.warn('Alumni database profile insert notice:', dbError.message);
+      try {
+        const { error: dbError } = await db.from('alumni').upsert(alumniData, { onConflict: 'email' });
+        if (dbError) {
+          await db.from('alumni').insert([alumniData]);
+        }
+      } catch (insertErr) {
+        console.warn('Alumni cloud insert notice:', insertErr);
       }
 
-      // 3. Cache non-sensitive profile info (NO plaintext password) for local offline fallback
+      // 3. Cache non-sensitive profile info for instant access
       try {
         const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
         localUsers[email.toLowerCase()] = {
@@ -226,12 +232,14 @@
           course: alumniData.course,
           batch: alumniData.batch,
           status: userStatus,
+          employment: userStatus,
           company: alumniData.company,
           email: email,
           phone: '',
           location: 'Metro Manila',
           position: alumniData.position,
-          skills: ''
+          skills: '',
+          active: true
         };
         localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
 
@@ -242,10 +250,11 @@
           name: fullName,
           course: alumniData.course,
           batch: alumniData.batch,
-          status: alumniData.status,
+          status: userStatus,
+          employment: userStatus,
           company: alumniData.company,
-          position: alumniData.status === 'Unemployed' ? 'N/A' : 'Staff / Specialist',
-          location: 'Quezon City',
+          position: alumniData.position,
+          location: 'Metro Manila',
           email: email,
           active: true
         };
@@ -256,7 +265,7 @@
         }
         localStorage.setItem('bcp_alumni_records', JSON.stringify(allAlumni));
       } catch (storageErr) {
-        console.warn('LocalStorage non-sensitive cache note:', storageErr);
+        console.warn('LocalStorage cache note:', storageErr);
       }
 
       // Cache session for seamless pre-fill on login
