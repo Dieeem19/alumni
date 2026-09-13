@@ -2030,43 +2030,15 @@
 
     const cachedSurveys = localStorage.getItem('bcp_survey_responses');
     if (cachedSurveys) {
-      try { surveyResponses = JSON.parse(cachedSurveys); } catch(e) { surveyResponses = []; }
+      try {
+        surveyResponses = JSON.parse(cachedSurveys);
+        // Filter out dummy/unregistered seed responses
+        surveyResponses = surveyResponses.filter(r => r.id !== 'RESP-170990001' && r.id !== 'RESP-170990002' && r.name !== 'Maria Santos' && r.name !== 'Juan Dela Cruz');
+      } catch(e) { surveyResponses = []; }
+    } else {
+      surveyResponses = [];
     }
-    if (!surveyResponses || surveyResponses.length === 0) {
-      surveyResponses = [
-        {
-          id: "RESP-170990001",
-          surveyId: 1709900000001,
-          surveyTitle: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
-          name: "Maria Santos",
-          courseBatch: "BS Information Technology (2022)",
-          satisfaction: "5 Stars - Extremely Satisfied",
-          relevance: "Directly Relevant",
-          employment: "Employed Full-time",
-          timeToEmploy: "Within 1 month",
-          skillsUsed: "Full-stack web development, SQL, API integrations",
-          suggestions: "Add more cloud certification bootcamps and AWS/Azure exam vouchers for graduating students.",
-          recommend: "Definitely Yes",
-          date: "2026-03-08"
-        },
-        {
-          id: "RESP-170990002",
-          surveyId: 1709900000001,
-          surveyTitle: "2026 Annual Alumni Satisfaction & Graduate Tracer Survey",
-          name: "Juan Dela Cruz",
-          courseBatch: "BS Business Administration (2021)",
-          satisfaction: "4 Stars - Satisfied",
-          relevance: "Partially Relevant",
-          employment: "Employed Full-time",
-          timeToEmploy: "1-3 months",
-          skillsUsed: "Financial reporting, marketing analytics, team management",
-          suggestions: "Streamline the alumni transcript and certificate request portal for faster online release.",
-          recommend: "Probably Yes",
-          date: "2026-03-07"
-        }
-      ];
-      localStorage.setItem('bcp_survey_responses', JSON.stringify(surveyResponses));
-    }
+    localStorage.setItem('bcp_survey_responses', JSON.stringify(surveyResponses));
 
     const cachedNews = localStorage.getItem('bcp_newsletter_posts');
     if (cachedNews) newsletterPosts = JSON.parse(cachedNews);

@@ -2949,6 +2949,12 @@
   }
 
   function loadActiveSurveys() {
+    try {
+      const cachedResp = JSON.parse(localStorage.getItem('bcp_survey_responses') || '[]');
+      const cleanedResp = cachedResp.filter(r => r.id !== 'RESP-170990001' && r.id !== 'RESP-170990002' && r.name !== 'Maria Santos' && r.name !== 'Juan Dela Cruz');
+      localStorage.setItem('bcp_survey_responses', JSON.stringify(cleanedResp));
+    } catch(e) {}
+
     const cached = localStorage.getItem('bcp_active_surveys');
     if (cached) {
       try { activeSurveys = JSON.parse(cached); } catch(e) { activeSurveys = []; }
