@@ -1801,6 +1801,11 @@
   </div>
 
   <script>
+    // ── Supabase & Data Engine ────────────────────────────────────────────────
+    const SUPABASE_URL = 'https://agzctzbsmjbstoiyenrf.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_9mDQ1g-Ue60AXuD5UeipoA_ol5eyCPD';
+    const db = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
     // ── Notification Dropdown & Live Announcements ─────────────────────────
     let readNotifIds = JSON.parse(localStorage.getItem('bcp_read_notifs') || '[]');
     window._currentNotifs = [];
@@ -2143,7 +2148,7 @@
 
     let newsletterPosts = [];
 
-    function loadProfile() {
+    async function loadProfile() {
       const cachedNews = localStorage.getItem('bcp_newsletter_posts');
       if (cachedNews) newsletterPosts = JSON.parse(cachedNews);
 
@@ -2154,16 +2159,50 @@
       const sessionStatus = sessionStorage.getItem('bcp_user_status') || '';
       const sessionCompany = sessionStorage.getItem('bcp_user_company') || '';
 
-      let registeredUser = null;
-      try {
-        const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-        if (sessionEmail && localUsers[sessionEmail.toLowerCase()]) {
-          registeredUser = localUsers[sessionEmail.toLowerCase()];
-        } else if (sessionName && sessionName !== 'Admin Officer') {
-          const allUsers = Object.values(localUsers);
-          registeredUser = allUsers.find(u => u.name && u.name.toLowerCase() === sessionName.toLowerCase());
+      let cloudProfile = null;
+      if (db && sessionEmail) {
+        try {
+          const { data, error } = await db.from('alumni').select('*').eq('email', sessionEmail).maybeSingle();
+          if (data) {
+            cloudProfile = data;
+          }
+        } catch (err) {
+          console.warn('Supabase cloud profile fetch note:', err);
         }
-      } catch (e) { }
+      }
+
+      // If not found in alumni table, check Supabase Auth metadata
+      if (!cloudProfile && db) {
+        try {
+          const { data: { user } } = await db.auth.getUser();
+          if (user && user.email && (!sessionEmail || user.email.toLowerCase() === sessionEmail.toLowerCase())) {
+            const meta = user.user_metadata || {};
+            cloudProfile = {
+              name: meta.full_name || sessionName,
+              email: user.email,
+              course: meta.course || sessionCourse,
+              batch: meta.batch || sessionBatch,
+              status: meta.status || sessionStatus,
+              company: meta.company || sessionCompany
+            };
+          }
+        } catch (authErr) {
+          console.warn('Supabase auth user check note:', authErr);
+        }
+      }
+
+      let registeredUser = cloudProfile;
+      if (!registeredUser) {
+        try {
+          const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+          if (sessionEmail && localUsers[sessionEmail.toLowerCase()]) {
+            registeredUser = localUsers[sessionEmail.toLowerCase()];
+          } else if (sessionName && sessionName !== 'Admin Officer') {
+            const allUsers = Object.values(localUsers);
+            registeredUser = allUsers.find(u => u.name && u.name.toLowerCase() === sessionName.toLowerCase());
+          }
+        } catch (e) { }
+      }
 
       // Lookup in bcp_alumni_records
       if (!registeredUser) {
@@ -2565,7 +2604,7 @@
       }
     }
 
-    function handleSaveProfile(e) {
+    async function handleSaveProfile(e) {
       e.preventDefault();
       const sName = (document.getElementById('profSurname') ? document.getElementById('profSurname').value.trim() : '');
       const fName = (document.getElementById('profFirstName') ? document.getElementById('profFirstName').value.trim() : '');
@@ -2595,10 +2634,48 @@
 
       sessionStorage.setItem('bcp_admin_name', currentAlumni.name);
       sessionStorage.setItem('bcp_user_email', currentAlumni.email);
+      sessionStorage.setItem('bcp_user_course', currentAlumni.course);
+      sessionStorage.setItem('bcp_user_batch', currentAlumni.batch);
+      sessionStorage.setItem('bcp_user_status', currentAlumni.status);
+      sessionStorage.setItem('bcp_user_company', currentAlumni.company);
 
+      // Authoritative Supabase Cloud Sync
+      if (db && currentAlumni.email) {
+        try {
+          const { error: dbErr } = await db.from('alumni').upsert({
+            email: currentAlumni.email,
+            name: currentAlumni.name,
+            course: currentAlumni.course,
+            batch: currentAlumni.batch,
+            status: currentAlumni.status,
+            company: currentAlumni.company,
+            position: currentAlumni.position,
+            location: currentAlumni.location,
+            phone: currentAlumni.phone,
+            skills: currentAlumni.skills
+          }, { onConflict: 'email' });
+          if (dbErr) console.warn('Supabase alumni update note:', dbErr);
+
+          await db.auth.updateUser({
+            data: {
+              full_name: currentAlumni.name,
+              course: currentAlumni.course,
+              batch: currentAlumni.batch,
+              status: currentAlumni.status,
+              company: currentAlumni.company
+            }
+          });
+        } catch (sErr) {
+          console.warn('Cloud sync error on profile save:', sErr);
+        }
+      }
+
+      // Safe cache without passwords
       try {
         const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-        localUsers[currentAlumni.email.toLowerCase()] = { ...currentAlumni };
+        const existingU = localUsers[currentAlumni.email.toLowerCase()] || {};
+        delete existingU.password;
+        localUsers[currentAlumni.email.toLowerCase()] = { ...existingU, ...currentAlumni };
         localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
       } catch (e) { }
 
@@ -2609,7 +2686,7 @@
       alertBox.style.background = '#dcfce7';
       alertBox.style.color = '#15803d';
       alertBox.style.border = '1px solid #86efac';
-      alertBox.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">celebration</span> <strong>Profile Updated!</strong> Your skills and employment details have been saved.';
+      alertBox.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">celebration</span> <strong>Profile Updated!</strong> Your skills and employment details have been saved to the cloud.';
       setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
     }
 
@@ -2637,32 +2714,21 @@
         return;
       }
 
-      const email = (currentAlumni.email || '').toLowerCase();
-      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-      const u = localUsers[email];
-
-      if (u && u.password && u.password !== curr) {
-        showPwdAlert('<span class="material-symbols-outlined" style="font-size:16px">cancel</span> Current password entered is incorrect.', false);
-        return;
-      }
-
-      // Update Local Vault
-      if (u) {
-        u.password = newPwd;
-        localUsers[email] = u;
-        localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
-      }
-
-      // Update Supabase Auth if session active
-      try {
-        if (window.supabase) {
-          await db.auth.updateUser({ password: newPwd });
+      // Authoritative Supabase Auth password update
+      if (db) {
+        try {
+          const { error } = await db.auth.updateUser({ password: newPwd });
+          if (error) {
+            showPwdAlert(`<span class="material-symbols-outlined" style="font-size:16px">cancel</span> ${escapeHtml(error.message || 'Could not update password.')}`, false);
+            return;
+          }
+        } catch (sErr) {
+          showPwdAlert('<span class="material-symbols-outlined" style="font-size:16px">cancel</span> Cloud password update failed. Please check your network connection.', false);
+          return;
         }
-      } catch (sErr) {
-        console.warn('Supabase password update note:', sErr);
       }
 
-      showPwdAlert('<span class="material-symbols-outlined" style="font-size:16px">lock</span> <strong>Security Password Updated!</strong> Please use your new password next time you sign in.', true);
+      showPwdAlert('<span class="material-symbols-outlined" style="font-size:16px">lock</span> <strong>Security Password Updated!</strong> Your cloud password has been updated. Please use your new password next time you sign in.', true);
       const f = document.getElementById('changePasswordFormTab');
       if (f) f.reset();
     }

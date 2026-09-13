@@ -685,6 +685,10 @@
     box.innerHTML = msg;
   }
 
+  function escapeHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   // ── Sign In ───────────────────────────────────────────────────────────────
   async function handleLogin(e) {
     e.preventDefault();
@@ -709,37 +713,18 @@
       return;
     }
 
-    // 2. Check Local Registered Users Vault (instant & works even if Supabase email confirmation is required)
-    try {
-      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-      const localUser = localUsers[email.toLowerCase()];
-
-      if (localUser && localUser.password === password) {
-        sessionStorage.setItem('bcp_admin_logged_in', 'true');
-        sessionStorage.setItem('bcp_role', 'alumni');
-        sessionStorage.setItem('bcp_admin_name', localUser.name || email.split('@')[0]);
-        sessionStorage.setItem('bcp_user_email', email);
-        if (localUser.batch) sessionStorage.setItem('bcp_user_batch', localUser.batch);
-        if (localUser.course) sessionStorage.setItem('bcp_user_course', localUser.course);
-        if (localUser.status) sessionStorage.setItem('bcp_user_status', localUser.status);
-        if (localUser.company) sessionStorage.setItem('bcp_user_company', localUser.company);
-        window.location.href = 'alumnipage.html';
-        return;
-      }
-    } catch (e) {
-      console.warn('Local vault read note:', e);
-    }
-
-    // 3. Supabase Auth Sign In
+    // 2. Authoritative Supabase Auth Sign In (works across any device / browser)
     try {
       const { data, error } = await db.auth.signInWithPassword({ email, password });
       
       if (!error && data?.user) {
         let alumniName = data?.user?.user_metadata?.full_name || '';
-        let alumniBatch = '';
-        let alumniCourse = '';
-        let alumniStatus = '';
-        let alumniCompany = '';
+        let alumniBatch = data?.user?.user_metadata?.batch || '';
+        let alumniCourse = data?.user?.user_metadata?.course || '';
+        let alumniStatus = data?.user?.user_metadata?.status || '';
+        let alumniCompany = data?.user?.user_metadata?.company || '';
+
+        // Retrieve profile from Supabase alumni table
         try {
           const { data: alumniRow } = await db.from('alumni').select('*').eq('email', email).maybeSingle();
           if (alumniRow) {
@@ -750,9 +735,10 @@
             if (alumniRow.company) alumniCompany = alumniRow.company;
           }
         } catch (fErr) {
-          console.warn('Profile fetch note:', fErr);
+          console.warn('Alumni database profile fetch notice:', fErr);
         }
 
+        // Set session state
         sessionStorage.setItem('bcp_admin_logged_in', 'true');
         sessionStorage.setItem('bcp_role', 'alumni');
         sessionStorage.setItem('bcp_admin_name', alumniName || email.split('@')[0]);
@@ -761,60 +747,26 @@
         if (alumniCourse) sessionStorage.setItem('bcp_user_course', alumniCourse);
         if (alumniStatus) sessionStorage.setItem('bcp_user_status', alumniStatus);
         if (alumniCompany) sessionStorage.setItem('bcp_user_company', alumniCompany);
+        
         window.location.href = 'alumnipage.html';
         return;
       }
 
-      // If Supabase returned an error:
+      // If Supabase Auth returned an error:
       if (error) {
-        // Check if user exists in the alumni database table
-        try {
-          const { data: alumniRow } = await db.from('alumni').select('*').eq('email', email).maybeSingle();
-          if (alumniRow) {
-            // User registered in the alumni table: grant login
-            sessionStorage.setItem('bcp_admin_logged_in', 'true');
-            sessionStorage.setItem('bcp_role', 'alumni');
-            sessionStorage.setItem('bcp_admin_name', alumniRow.name || email.split('@')[0]);
-            sessionStorage.setItem('bcp_user_email', email);
-            if (alumniRow.batch) sessionStorage.setItem('bcp_user_batch', alumniRow.batch);
-            if (alumniRow.course) sessionStorage.setItem('bcp_user_course', alumniRow.course);
-            if (alumniRow.status) sessionStorage.setItem('bcp_user_status', alumniRow.status);
-            if (alumniRow.company) sessionStorage.setItem('bcp_user_company', alumniRow.company);
-            window.location.href = 'alumnipage.html';
-            return;
-          }
-        } catch (tblErr) {
-          console.warn('Table lookup note:', tblErr);
+        let errorMsg = error.message;
+        if (errorMsg.toLowerCase().includes('invalid login credentials')) {
+          errorMsg = '<strong>Invalid credentials:</strong> Incorrect email or password. Please make sure you registered this account in the cloud.';
+        } else if (errorMsg.toLowerCase().includes('email not confirmed')) {
+          errorMsg = '<strong>Email not confirmed:</strong> Please check your email inbox to verify your account before logging in.';
         }
-
-        if (error.message.toLowerCase().includes('invalid login credentials')) {
-          showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">cancel</span> <strong>Invalid credentials:</strong> Incorrect email or password. Please make sure you registered this account.');
-        } else {
-          showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">cancel</span> ' + error.message);
-        }
+        showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">cancel</span> ' + errorMsg);
         if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
         return;
       }
     } catch (err) {
-      // Final fallback check
-      try {
-        const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-        const localUser = localUsers[email.toLowerCase()];
-        if (localUser && localUser.password === password) {
-          sessionStorage.setItem('bcp_admin_logged_in', 'true');
-          sessionStorage.setItem('bcp_role', 'alumni');
-          sessionStorage.setItem('bcp_admin_name', localUser.name || email.split('@')[0]);
-          sessionStorage.setItem('bcp_user_email', email);
-          if (localUser.batch) sessionStorage.setItem('bcp_user_batch', localUser.batch);
-          if (localUser.course) sessionStorage.setItem('bcp_user_course', localUser.course);
-          if (localUser.status) sessionStorage.setItem('bcp_user_status', localUser.status);
-          if (localUser.company) sessionStorage.setItem('bcp_user_company', localUser.company);
-          window.location.href = 'alumnipage.html';
-          return;
-        }
-      } catch (ignore) {}
-
-      showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">cancel</span> ' + (err.message || 'An unexpected error occurred. Please try again.'));
+      console.error('Login error:', err);
+      showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">cancel</span> ' + (escapeHtml(err.message) || 'Unable to connect to authentication server. Please check your internet connection.'));
       if (btn) { btn.disabled = false; btn.textContent = 'Sign In'; }
     }
   }
@@ -881,42 +833,59 @@
     btn.disabled = true;
     btn.textContent = 'Creating Alumni Profile...';
 
-    // 1. Save to Local Vault immediately for guaranteed login
     try {
-      const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
-      localUsers[email.toLowerCase()] = {
-        name: fullName,
-        password: pwd,
-        course: alumniData.course,
-        batch: alumniData.batch,
-        status: alumniData.status,
-        company: alumniData.company,
-        email: email,
-        phone: '',
-        location: '',
-        position: '',
-        skills: ''
-      };
-      localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
-    } catch (storageErr) {
-      console.warn('LocalStorage save note:', storageErr);
-    }
-
-    try {
-      // 2. Create Supabase Auth account
+      // 1. Authoritative Supabase Auth signUp
       const { data: authData, error: authError } = await db.auth.signUp({
         email,
         password: pwd,
-        options: { data: { full_name: fullName, role: 'alumni' } }
+        options: {
+          data: {
+            full_name: fullName,
+            role: 'alumni',
+            course: alumniData.course,
+            batch: alumniData.batch,
+            status: alumniData.status,
+            company: alumniData.company
+          }
+        }
       });
 
-      if (authError && !authError.message.toLowerCase().includes('already registered')) {
-        console.warn('Supabase Auth note:', authError.message);
+      if (authError) {
+        let msg = authError.message;
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already exists')) {
+          msg = 'An account with this email already exists. Please sign in instead.';
+        }
+        showAlert('registerAlert', `<span class="material-symbols-outlined" style="font-size:16px">error</span> <strong>Registration Failed:</strong> ${escapeHtml(msg)}`);
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">school</span> Complete Alumni Registration';
+        return;
       }
 
-      // 3. Insert alumni profile row
+      // 2. Insert alumni profile row in Supabase database
       const { error: dbError } = await db.from('alumni').insert([alumniData]);
-      if (dbError) console.warn('Alumni insert note:', dbError.message);
+      if (dbError) {
+        console.warn('Alumni database profile insert notice:', dbError.message);
+      }
+
+      // 3. Cache non-sensitive profile info (NO plaintext password) for local offline fallback
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('bcp_registered_users') || '{}');
+        localUsers[email.toLowerCase()] = {
+          name: fullName,
+          course: alumniData.course,
+          batch: alumniData.batch,
+          status: alumniData.status,
+          company: alumniData.company,
+          email: email,
+          phone: '',
+          location: '',
+          position: '',
+          skills: ''
+        };
+        localStorage.setItem('bcp_registered_users', JSON.stringify(localUsers));
+      } catch (storageErr) {
+        console.warn('LocalStorage non-sensitive cache note:', storageErr);
+      }
 
       showAlert('registerAlert', '<span class="material-symbols-outlined" style="font-size:18px">celebration</span> <strong>Registration Successful!</strong> Your alumni account is created. Switching to Sign In...', true);
       
@@ -925,21 +894,14 @@
         document.getElementById('loginEmail').value = email;
         document.getElementById('loginPassword').value = pwd;
         showSignInView();
-        showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Welcome <strong>' + fullName + '</strong>! Your credentials are ready. Click "Sign In" below.', true);
+        showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Welcome <strong>' + escapeHtml(fullName) + '</strong>! Your credentials are ready. Click "Sign In" below.', true);
       }, 1200);
     } catch (err) {
-      console.warn('Registration remote note:', err);
-      showAlert('registerAlert', '<span class="material-symbols-outlined" style="font-size:18px">celebration</span> <strong>Registration Successful!</strong> Your alumni account is created. Switching to Sign In...', true);
-      setTimeout(() => {
-        document.getElementById('registerForm').reset();
-        document.getElementById('loginEmail').value = email;
-        document.getElementById('loginPassword').value = pwd;
-        showSignInView();
-        showAlert('loginAlert', '<span class="material-symbols-outlined" style="font-size:16px">check_circle</span> Welcome <strong>' + fullName + '</strong>! Your credentials are ready. Click "Sign In" below.', true);
-      }, 1200);
+      console.error('Registration remote error:', err);
+      showAlert('registerAlert', `<span class="material-symbols-outlined" style="font-size:16px">error</span> <strong>Registration Failed:</strong> ${escapeHtml(err.message || 'An unexpected error occurred during cloud registration.')}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = '<span class="material-symbols-outlined" style="font-size:18px">school</span> Complete Alumni Registration';
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">school</span> Complete Alumni Registration';
     }
   }
 </script>
